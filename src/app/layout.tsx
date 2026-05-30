@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Poppins, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({
-  variable: "--font-inter",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 const playfair = Playfair_Display({
@@ -14,11 +15,11 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Auditoría Digital IA — LLAVE DIGITAL 3.0",
+  title: "Auditoría Digital IA — Daniela Silva, Estratega Digital",
   description: "Descubre exactamente por qué tu negocio digital no vende lo que debería. Auditoría con Inteligencia Artificial en minutos. Gratis o completa por $9.99.",
-  keywords: ["auditoría digital", "IA", "ventas online", "LLAVE DIGITAL", "optimización", "negocio digital"],
+  keywords: ["auditoría digital", "IA", "ventas online", "Daniela Silva", "optimización", "negocio digital"],
   openGraph: {
-    title: "Auditoría Digital IA — LLAVE DIGITAL 3.0",
+    title: "Auditoría Digital IA — Daniela Silva, Estratega Digital",
     description: "Descubre exactamente por qué tu negocio digital no vende lo que debería.",
     type: "website",
   },
@@ -32,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body
-        className={`${inter.variable} ${playfair.variable} antialiased bg-[#0F0D0B] text-[#E2D9CC]`}
+        className={`${poppins.variable} ${playfair.variable} antialiased bg-[#0F0D0B] text-[#E2D9CC]`}
       >
         {children}
         <Toaster />
