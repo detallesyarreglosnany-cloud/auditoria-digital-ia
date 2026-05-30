@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  name            String
+  email           String
+  whatsapp        String?
+  website         String?
+  businessType    String?
+  followers       String?
+  monthlyRevenue  String?
+  revenueGoal     String?
+  usesAutomation  Boolean  @default(false)
+  frustration     String?
+  auditType       String   @default("free") // "free" or "complete"
+  score           Int?
+  reportData      String?  // JSON string with the full AI report
+  referralCode    String?  // The code of who referred this lead
+  source          String?  // "organic", "referral", "ad"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Referral {
+  id            String   @id @default(cuid())
+  code          String   @unique // Unique referral code for each person
+  referrerName  String
+  referrerEmail String
+  referrerPhone String?
+  clicks        Int      @default(0)
+  conversions   Int      @default(0)
+  commissionOwed   Float    @default(0)
+  commissionPaid   Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditResult {
+  id              String   @id @default(cuid())
+  leadId          String
+  scoreGeneral    Int
+  scoreVentas     Int?
+  scorePresencia  Int?
+  scoreAutomatizacion Int?
+  scoreExperiencia Int?
+  scoreRetencion  Int?
+  problems        String   // JSON array of problems
+  recommendations String   // JSON array of recommendations
+  adBudget        String?  // JSON with ad budget recommendations
+  fullReport      String   // Full markdown report
+  createdAt       DateTime @default(now())
+}
