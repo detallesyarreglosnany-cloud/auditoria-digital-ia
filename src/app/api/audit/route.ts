@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateAudit, generateFreeReportEmail, generateCompleteReportMarkdown, type AuditInput } from '@/lib/audit-engine';
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,6 +87,53 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // ─── SEND EMAIL ───
+    let emailSent = false;
+    try {
+      if (resend && process.env.RESEND_API_KEY) {
+        if (auditInput.auditType === 'free') {
+          const freeEmail = generateFreeReportEmail(result, auditInput.name);
+          await resend.emails.send({
+            from: 'Daniela Silva <auditoria@danielasilva.com>',
+            to: auditInput.email,
+            subject: `Tu Auditoría Digital Express — Score: ${result.scoreGeneral}/100`,
+            text: freeEmail,
+          });
+          emailSent = true;
+        } else {
+          const completeReport = generateCompleteReportMarkdown(result, auditInput.name);
+          await resend.emails.send({
+            from: 'Daniela Silva <auditoria@danielasilva.com>',
+            to: auditInput.email,
+            subject: `Tu Auditoría Digital Completa — Score: ${result.scoreGeneral}/100`,
+            text: completeReport,
+          });
+          emailSent = true;
+        }
+      }
+    } catch (emailError) {
+      console.error('Email send error:', emailError);
+      // Don't fail the whole request if email fails
+    }
+
+    // ─── PREPARE WHATSAPP REPORT ───
+    const waReport = `📊 AUDITORÍA DIGITAL — ${auditInput.name}
+
+🎯 SCORE: ${result.scoreGeneral}/100
+
+🚨 PROBLEMAS CRÍTICOS:
+${result.problems.map((p: any, i: number) => `${i + 1}. ${p.title} → Hasta ${p.impactPercent}% de mejora`).join('\n')}
+
+${auditInput.auditType === 'complete' ? `📋 PLAN DE ACCIÓN:
+Semana 1: ${result.planAction.semana1.join(', ')}
+Semana 2: ${result.planAction.semana2.join(', ')}
+
+📢 PRESUPUESTO ADS: ${result.adBudget.dailyBudgetPercent}
+
+Generado por Daniela Silva, Estratega Digital` : `💡 Obtén soluciones paso a paso + campañas personalizadas → Auditoría Completa $9.99
+
+Generado por Daniela Silva, Estratega Digital`}`;
+
     // Prepare response based on audit type
     if (auditInput.auditType === 'free') {
       const freeEmail = generateFreeReportEmail(result, auditInput.name);
@@ -97,7 +147,9 @@ export async function POST(request: NextRequest) {
           impactPercent: p.impactPercent
         })),
         emailPreview: freeEmail,
-        message: 'Tu auditoría express ha sido generada. Revisa tu email.'
+        whatsappReport: waReport,
+        emailSent,
+        message: emailSent ? 'Tu auditoría ha sido enviada a tu email.' : 'Tu auditoría express está lista.'
       });
     } else {
       const completeReport = generateCompleteReportMarkdown(result, auditInput.name);
@@ -118,7 +170,9 @@ export async function POST(request: NextRequest) {
         adBudget: result.adBudget,
         planAction: result.planAction,
         reportMarkdown: completeReport,
-        message: 'Tu auditoría completa ha sido generada.'
+        whatsappReport: waReport,
+        emailSent,
+        message: emailSent ? 'Tu auditoría completa ha sido enviada a tu email.' : 'Tu auditoría completa ha sido generada.'
       });
     }
 

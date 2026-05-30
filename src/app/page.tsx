@@ -6,7 +6,7 @@ import {
   Search, Zap, Bot, Globe, TrendingUp, Clock,
   CheckCircle, ArrowRight, Star, Users, BarChart3, MessageCircle,
   ChevronDown, ChevronUp, Sparkles, AlertTriangle, Target, MousePointerClick,
-  Loader2, Gift, Percent, Megaphone, Handshake, Instagram,
+  Loader2, Gift, Percent, Megaphone, Handshake, Instagram, Mail,
   CircleDollarSign, Store, Palette, Copy, Check, Shield, Rocket, Crown,
   ArrowUpRight, Play, ChevronRight
 } from 'lucide-react';
@@ -82,9 +82,37 @@ function ScoreCircle({ score, size = 120 }: { score: number; size?: number }) {
   );
 }
 
-function AuditResultModal({ result, onClose }: { result: any; onClose: () => void }) {
+function AuditResultModal({ result, onClose, formData }: { result: any; onClose: () => void; formData: any }) {
   const [showFull, setShowFull] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<'none' | 'wa' | 'email'>('none');
   if (!result) return null;
+
+  const sendToWhatsApp = () => {
+    const report = result.whatsappReport || `📊 Auditoría Digital — ${formData.name}\n\n🎯 Score: ${result.score}/100\n\n🚨 Problemas:\n${result.problems.map((p: any, i: number) => `${i + 1}. ${p.title} → ${p.impactPercent}% mejora`).join('\n')}`;
+    const waNumber = formData.whatsapp?.replace(/[^0-9]/g, '') || '';
+    const url = waNumber
+      ? `https://wa.me/${waNumber}?text=${encodeURIComponent(report)}`
+      : `https://wa.me/?text=${encodeURIComponent(report)}`;
+    window.open(url, '_blank');
+    setSent('wa');
+  };
+
+  const sendToEmail = async () => {
+    setSending(true);
+    try {
+      const res = await fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, auditType: formData.auditType || result.auditType, resendEmail: true }),
+      });
+      const data = await res.json();
+      if (data.emailSent || data.success) {
+        setSent('email');
+      }
+    } catch { /* already shown in modal */ }
+    setSending(false);
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
@@ -95,6 +123,21 @@ function AuditResultModal({ result, onClose }: { result: any; onClose: () => voi
           </h3>
           <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl">&times;</button>
         </div>
+
+        {/* ─── DELIVERY OPTIONS ─── */}
+        <div className="rounded-2xl p-4 border mb-6" style={{ background: `${OLIVE}10`, borderColor: `${OLIVE}40` }}>
+          <p className="text-[#E2D9CC] font-semibold text-sm mb-3">📱 Recibe tu reporte:</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={sendToWhatsApp} className="flex-1 font-semibold text-white rounded-2xl h-11" style={{ background: '#25D366', boxShadow: '0 0 15px rgba(37,211,102,0.3)' }}>
+              <WhatsAppIcon className="w-4 h-4 mr-2" />{sent === 'wa' ? '¡Enviado!' : 'Enviar a WhatsApp'}
+            </Button>
+            <Button onClick={sendToEmail} disabled={sending} className="flex-1 font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
+              {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}{sent === 'email' ? '¡Enviado!' : sending ? 'Enviando...' : 'Enviar por Email'}
+            </Button>
+          </div>
+          {result.emailSent && <p className="text-[#9AAC72] text-xs mt-2 text-center">✓ También lo enviamos a {formData.email}</p>}
+        </div>
+
         <div className="flex items-center gap-6 mb-8">
           <ScoreCircle score={result.score} />
           <div>
@@ -129,21 +172,23 @@ function AuditResultModal({ result, onClose }: { result: any; onClose: () => voi
           <div className="rounded-2xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}60`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}20` }}>
             <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres las soluciones completas?</p>
             <p className="text-[#9A8E80] text-sm mb-4">Incluye: soluciones paso a paso, plan de 4 semanas, campañas personalizadas y presupuesto publicitario.</p>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>Auditoría Completa — $9.99</Button>
+                <Button className="font-semibold text-white rounded-2xl" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold">B</span><span className="ml-1">Pagar $9.99</span></Button>
               </a>
-              <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" className="rounded-2xl text-white" style={{ borderColor: OLIVE, color: OLIVE_LIGHT, boxShadow: `0 0 10px ${OLIVE_GLOW}30` }}>Hablar con Daniela</Button>
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp $9.99</Button>
               </a>
             </div>
           </div>
         ) : (
           <div className="rounded-2xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}60`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}20` }}>
             <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres que lo implementemos?</p>
-            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
-              <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><MessageCircle className="w-4 h-4 mr-2" />Agenda tu llamada GRATIS</Button>
-            </a>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Agenda llamada GRATIS</Button>
+              </a>
+            </div>
           </div>
         )}
         {result.auditType === 'complete' && result.reportMarkdown && (
@@ -214,7 +259,7 @@ export default function Home() {
   // Referral signup
   const [refSignup, setRefSignup] = useState({ name: '', email: '', phone: '' });
   const [refLoading, setRefLoading] = useState(false);
-  const [refResult, setRefResult] = useState<{ code: string; link: string } | null>(null);
+  const [refResult, setRefResult] = useState<{ code: string; link: string; whatsappLink?: string; emailSent?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -260,7 +305,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/referral', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(refSignup) });
       const data = await res.json();
-      if (data.success) { setRefResult({ code: data.code, link: data.referralLink }); toast({ title: '¡Código creado!' }); }
+      if (data.success) { setRefResult({ code: data.code, link: data.referralLink, whatsappLink: data.whatsappLink, emailSent: data.emailSent }); toast({ title: '¡Código creado!', description: data.emailSent ? 'Enviado a tu email' : 'Revisa tu código abajo' }); }
       else { toast({ title: 'Error', description: data.error, variant: 'destructive' }); }
     } catch { toast({ title: 'Error', variant: 'destructive' }); }
     finally { setRefLoading(false); }
@@ -602,7 +647,14 @@ export default function Home() {
                     </CardHeader>
                     <CardContent className="space-y-2.5">
                       {pkg.features.map((f, j) => <div key={j} className="flex items-start gap-2 text-sm"><CheckCircle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#9A8E80]">{f}</span></div>)}
-                      <div className="pt-4"><a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer"><Button className={`w-full font-semibold rounded-2xl h-12 text-white transition-all`} style={pkg.popular ? { background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN } : { background: `${OLIVE}15`, borderColor: OLIVE, color: 'white', boxShadow: `0 0 10px ${OLIVE_GLOW}20` }} variant={pkg.popular ? 'default' : 'outline'}><WhatsAppIcon className="w-4 h-4 mr-2" />Agendar llamada</Button></a></div>
+                      <div className="pt-4 space-y-2">
+                        <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20el%20paquete%20${pkg.name}%20${pkg.price}%20—%20Pago%20por%20Binance" target="_blank" rel="noopener noreferrer" className="block">
+                          <Button className="w-full font-semibold rounded-2xl h-11 text-white" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar con Binance</Button>
+                        </a>
+                        <a href={`https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20el%20paquete%20${pkg.name}%20${pkg.price}`} target="_blank" rel="noopener noreferrer" className="block">
+                          <Button className="w-full font-semibold rounded-2xl h-11 text-white" style={pkg.popular ? { background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN } : { background: `${OLIVE}15`, borderColor: OLIVE, color: 'white', boxShadow: `0 0 10px ${OLIVE_GLOW}20` }} variant={pkg.popular ? 'default' : 'outline'}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp</Button>
+                        </a>
+                      </div>
                     </CardContent>
                   </Card>
                 </FadeIn>
@@ -662,6 +714,14 @@ export default function Home() {
                           {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
                         </button>
                       </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        {refResult.whatsappLink && (
+                          <a href={refResult.whatsappLink} target="_blank" rel="noopener noreferrer" className="flex-1">
+                            <Button className="w-full font-semibold text-white rounded-2xl h-10" style={{ background: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)' }}><WhatsAppIcon className="w-4 h-4 mr-2" />Compartir por WhatsApp</Button>
+                          </a>
+                        )}
+                      </div>
+                      {refResult.emailSent && <p className="text-[#9AAC72] text-xs">✓ También lo enviamos a tu email</p>}
                       <p className="text-[#9A8E80] text-xs">Comparte este enlace y gana 10% por cada paquete vendido</p>
                     </div>
                   )}
@@ -698,8 +758,69 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══ FAQ ═══ */}
+        {/* ═══ WHITE LABEL AUDIT SECTION — PREMIUM (BEFORE FAQ) ═══ */}
         <section className="px-4 md:px-8 py-14 md:py-20 bg-[#1E1B16]/50">
+          <div className="max-w-5xl mx-auto">
+            <FadeIn>
+              <div className="rounded-3xl relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, border: `1px solid ${OLIVE}40`, boxShadow: `0 0 50px ${OLIVE_GLOW}20, 0 8px 40px rgba(0,0,0,0.5)` }}>
+                <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}10` }} />
+                <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE_LIGHT}08` }} />
+                <div className="relative z-10 p-6 md:p-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
+                    <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
+                  </div>
+                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight">
+                    SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
+                    <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
+                  </h2>
+                  <p className="text-[#9A8E80] mb-8 max-w-2xl leading-relaxed">
+                    Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
+                    Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
+                  </p>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    {[
+                      { icon: <Palette className="w-5 h-5" />, text: 'Landing adaptada a tu nicho y marca' },
+                      { icon: <Store className="w-5 h-5" />, text: 'Tus servicios y precios integrados' },
+                      { icon: <BarChart3 className="w-5 h-5" />, text: 'Recolección de datos de clientes' },
+                      { icon: <Bot className="w-5 h-5" />, text: 'Reportes generados por IA' },
+                      { icon: <CircleDollarSign className="w-5 h-5" />, text: 'Sistema de pagos conectado' },
+                      { icon: <Globe className="w-5 h-5" />, text: 'Todos los beneficios de este servicio' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-4 border transition-all hover:border-[#7C8F58]/50" style={{ borderColor: `${OLIVE}20` }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${OLIVE}15`, color: OLIVE_LIGHT }}>{item.icon}</div>
+                        <span className="text-[#E2D9CC] text-sm font-medium">{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-6 border" style={{ borderColor: `${OLIVE}30` }}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
+                        <Shield className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-[#E2D9CC]">$69.99</p>
+                        <p className="text-[#9A8E80] text-sm">Pago único — Landing + sistema</p>
+                      </div>
+                    </div>
+                    <div className="flex-1" />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20para%20mi%20nicho%20%2469.99%20—%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                        <Button className="font-semibold text-white rounded-2xl h-12 px-6" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar $69.99</Button>
+                      </a>
+                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20para%20mi%20nicho%20%2469.99" target="_blank" rel="noopener noreferrer">
+                        <Button className="font-semibold text-white rounded-2xl h-12 px-6" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp</Button>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* ═══ FAQ ═══ */}
+        <section className="px-4 md:px-8 py-14 md:py-20">
           <div className="max-w-2xl mx-auto">
             <FadeIn><h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-3 font-bold">Preguntas frecuentes</h2></FadeIn>
             <FadeIn><p className="text-[#9A8E80] text-center mb-10">Todo lo que necesitas saber antes de empezar.</p></FadeIn>
@@ -720,67 +841,6 @@ export default function Home() {
                   </AccordionItem>
                 ))}
               </Accordion>
-            </FadeIn>
-          </div>
-        </section>
-
-        {/* ═══ WHITE LABEL AUDIT SECTION — PREMIUM ═══ */}
-        <section className="px-4 md:px-8 py-14 md:py-20">
-          <div className="max-w-5xl mx-auto">
-            <FadeIn>
-              <div className="rounded-3xl relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, border: `1px solid ${OLIVE}40`, boxShadow: `0 0 50px ${OLIVE_GLOW}20, 0 8px 40px rgba(0,0,0,0.5)` }}>
-                {/* Decorative background */}
-                <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}10` }} />
-                <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE_LIGHT}08` }} />
-                <div className="relative z-10 p-6 md:p-10">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
-                    <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
-                  </div>
-                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight">
-                    SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
-                    <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
-                  </h2>
-                  <p className="text-[#9A8E80] mb-8 max-w-2xl leading-relaxed">
-                    Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
-                    Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
-                  </p>
-
-                  {/* Feature grid */}
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    {[
-                      { icon: <Palette className="w-5 h-5" />, text: 'Landing adaptada a tu nicho y marca', highlight: false },
-                      { icon: <Store className="w-5 h-5" />, text: 'Tus servicios y precios integrados', highlight: false },
-                      { icon: <BarChart3 className="w-5 h-5" />, text: 'Recolección de datos de clientes', highlight: false },
-                      { icon: <Bot className="w-5 h-5" />, text: 'Reportes generados por IA', highlight: true },
-                      { icon: <CircleDollarSign className="w-5 h-5" />, text: 'Sistema de pagos conectado', highlight: true },
-                      { icon: <Globe className="w-5 h-5" />, text: 'Todos los beneficios de este servicio', highlight: false },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-4 border transition-all hover:border-[#7C8F58]/50" style={{ borderColor: `${OLIVE}20` }}>
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: item.highlight ? `${OLIVE}25` : `${OLIVE}12`, color: OLIVE_LIGHT }}>{item.icon}</div>
-                        <span className="text-[#E2D9CC] text-sm font-medium">{item.text}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* CTA row */}
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-6 border" style={{ borderColor: `${OLIVE}30` }}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
-                        <Shield className="w-7 h-7 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-3xl font-bold text-[#E2D9CC]">$69.99</p>
-                        <p className="text-[#9A8E80] text-sm">Pago único — Landing + sistema completo</p>
-                      </div>
-                    </div>
-                    <div className="flex-1" />
-                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20adaptada%20a%20mi%20nicho%20por%20%2469.99" target="_blank" rel="noopener noreferrer">
-                      <Button className="font-semibold text-white rounded-2xl h-13 px-8 text-lg animate-pulse-glow" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-5 h-5 mr-2" />Quiero la auditoría para mi nicho</Button>
-                    </a>
-                  </div>
-                </div>
-              </div>
             </FadeIn>
           </div>
         </section>
@@ -831,7 +891,7 @@ export default function Home() {
       </footer>
 
       {/* ═══ RESULT MODAL ═══ */}
-      <AnimatePresence>{result && <AuditResultModal result={result} onClose={() => setResult(null)} />}</AnimatePresence>
+      <AnimatePresence>{result && <AuditResultModal result={result} onClose={() => setResult(null)} formData={formData} />}</AnimatePresence>
     </div>
   );
 }
