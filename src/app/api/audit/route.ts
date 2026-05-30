@@ -5,10 +5,102 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Daniela's notification email
+const DANIELA_EMAIL = process.env.DANIELA_EMAIL || 'danielasilva.digital@gmail.com';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
+    // ─── RESEND EMAIL HANDLER ───
+    // If resendEmail is true, look up existing audit and resend without regenerating
+    if (body.resendEmail && body.email) {
+      let emailSent = false;
+      try {
+        const existingLead = await db.lead.findFirst({
+          where: { email: body.email },
+          orderBy: { createdAt: 'desc' },
+          include: { auditResults: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        });
+
+        if (existingLead && existingLead.auditResults.length > 0) {
+          const auditData = existingLead.auditResults[0];
+          const result = JSON.parse(auditData.fullReport || '{}');
+
+          if (resend && process.env.RESEND_API_KEY) {
+            if (existingLead.auditType === 'free') {
+              const freeEmail = generateFreeReportEmail(result, existingLead.name);
+              await resend.emails.send({
+                from: 'Daniela Silva <auditoria@danielasilva.com>',
+                to: existingLead.email,
+                subject: `Tu Auditoría Digital Express — Score: ${result.scoreGeneral}/100`,
+                text: freeEmail,
+              });
+            } else {
+              const completeReport = generateCompleteReportMarkdown(result, existingLead.name);
+              await resend.emails.send({
+                from: 'Daniela Silva <auditoria@danielasilva.com>',
+                to: existingLead.email,
+                subject: `Tu Auditoría Digital Completa — Score: ${result.scoreGeneral}/100`,
+                text: completeReport,
+              });
+            }
+            emailSent = true;
+          }
+        }
+      } catch (emailError) {
+        console.error('Resend email error:', emailError);
+      }
+
+      return NextResponse.json({ success: true, emailSent, message: emailSent ? 'Reporte reenviado a tu email.' : 'No se pudo reenviar el email.' });
+    }
+
+    // ─── SAVE ONLY HANDLER ───
+    // When saveOnly is true, just save the lead without generating the full audit
+    // Used when user selects complete audit ($9.99) and needs to arrange payment first
+    if (body.saveOnly) {
+      try {
+        const lead = await db.lead.create({
+          data: {
+            name: body.name || '',
+            email: body.email || '',
+            whatsapp: body.whatsapp || '',
+            website: body.website || '',
+            businessType: body.businessType || '',
+            followers: body.followers || '',
+            monthlyRevenue: body.monthlyRevenue || '',
+            revenueGoal: body.revenueGoal || '',
+            usesAutomation: body.usesAutomation || false,
+            frustration: body.frustration || '',
+            auditType: 'complete',
+            score: 0,
+            reportData: '',
+            referralCode: body.referralCode || null,
+            source: body.referralCode ? 'referral' : 'organic',
+          }
+        });
+
+        // Notify Daniela about the new complete audit lead
+        try {
+          if (resend && process.env.RESEND_API_KEY) {
+            await resend.emails.send({
+              from: 'Daniela Silva <auditoria@danielasilva.com>',
+              to: DANIELA_EMAIL,
+              subject: `🔔 Nuevo lead COMPLETO: ${body.name} — $9.99 pendiente de pago`,
+              text: `¡Nuevo lead para auditoría COMPLETA!\n\nNombre: ${body.name}\nEmail: ${body.email}\nWhatsApp: ${body.whatsapp || 'No proporcionado'}\nNegocio: ${body.businessType || 'No especificado'}\nFrustración: ${body.frustration || 'No especificada'}\n\n⚠️ Pago pendiente — El usuario fue redirigido a WhatsApp para pagar.\n\n— Sistema de Auditoría Digital`,
+            });
+          }
+        } catch (notifyError) {
+          console.error('Daniela notification error:', notifyError);
+        }
+
+        return NextResponse.json({ success: true, leadId: lead.id, message: 'Lead guardado. Pendiente de pago.' });
+      } catch (dbError) {
+        console.error('Save-only lead error:', dbError);
+        return NextResponse.json({ success: true, message: 'Lead procesado.' });
+      }
+    }
+
     const auditInput: AuditInput = {
       name: body.name || '',
       email: body.email || '',
@@ -87,7 +179,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // ─── SEND EMAIL ───
+    // ─── SEND EMAIL TO USER ───
     let emailSent = false;
     try {
       if (resend && process.env.RESEND_API_KEY) {
@@ -114,6 +206,20 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error('Email send error:', emailError);
       // Don't fail the whole request if email fails
+    }
+
+    // ─── SEND NOTIFICATION TO DANIELA ───
+    try {
+      if (resend && process.env.RESEND_API_KEY) {
+        await resend.emails.send({
+          from: 'Daniela Silva <auditoria@danielasilva.com>',
+          to: DANIELA_EMAIL,
+          subject: `🔔 Nuevo lead: ${auditInput.name} — ${auditInput.auditType === 'free' ? 'Express' : 'Completa'} (Score: ${result.scoreGeneral}/100)`,
+          text: `¡Nuevo lead!\n\nNombre: ${auditInput.name}\nEmail: ${auditInput.email}\nWhatsApp: ${auditInput.whatsapp || 'No proporcionado'}\nNegocio: ${auditInput.businessType || 'No especificado'}\nSitio web: ${auditInput.website || 'No'}\nRed social: ${auditInput.socialLink || 'No'}\nTipo: ${auditInput.auditType === 'free' ? 'Express (Gratis)' : 'Completa ($9.99)'}\nScore: ${result.scoreGeneral}/100\nFrustración: ${auditInput.frustration || 'No especificada'}\nCódigo referido: ${auditInput.referralCode || 'Ninguno'}\n\n— Sistema de Auditoría Digital`,
+        });
+      }
+    } catch (notifyError) {
+      console.error('Daniela notification error:', notifyError);
     }
 
     // ─── PREPARE WHATSAPP REPORT ───

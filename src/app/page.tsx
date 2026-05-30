@@ -125,17 +125,18 @@ function AuditResultModal({ result, onClose, formData }: { result: any; onClose:
         </div>
 
         {/* ─── DELIVERY OPTIONS ─── */}
-        <div className="rounded-2xl p-4 border mb-6" style={{ background: `${OLIVE}10`, borderColor: `${OLIVE}40` }}>
-          <p className="text-[#E2D9CC] font-semibold text-sm mb-3">📱 Recibe tu reporte:</p>
+        <div className="rounded-2xl p-5 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}15, ${OLIVE_LIGHT}08)`, borderColor: `${OLIVE}50` }}>
+          <p className="text-[#E2D9CC] font-bold text-base mb-2">📧 Tu reporte fue enviado a tu email</p>
+          <p className="text-[#9AAC72] text-sm mb-3">También puedes enviarlo a tu WhatsApp:</p>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={sendToWhatsApp} className="flex-1 font-semibold text-white rounded-2xl h-11" style={{ background: '#25D366', boxShadow: '0 0 15px rgba(37,211,102,0.3)' }}>
-              <WhatsAppIcon className="w-4 h-4 mr-2" />{sent === 'wa' ? '¡Enviado!' : 'Enviar a WhatsApp'}
+            <Button onClick={sendToWhatsApp} className="flex-1 font-semibold text-white rounded-2xl h-12 text-sm" style={{ background: '#25D366', boxShadow: '0 0 15px rgba(37,211,102,0.3)' }}>
+              <WhatsAppIcon className="w-5 h-5 mr-2" />{sent === 'wa' ? '¡Enviado a WhatsApp!' : 'Enviar a WhatsApp'}
             </Button>
-            <Button onClick={sendToEmail} disabled={sending} className="flex-1 font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
-              {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}{sent === 'email' ? '¡Enviado!' : sending ? 'Enviando...' : 'Enviar por Email'}
+            <Button onClick={sendToEmail} disabled={sending} className="flex-1 font-semibold text-white rounded-2xl h-12 text-sm" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
+              {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}{sent === 'email' ? '¡Email reenviado!' : sending ? 'Enviando...' : 'Reenviar por Email'}
             </Button>
           </div>
-          {result.emailSent && <p className="text-[#9AAC72] text-xs mt-2 text-center">✓ También lo enviamos a {formData.email}</p>}
+          {result.emailSent && <p className="text-[#9AAC72] text-xs mt-2 text-center">✓ Reporte enviado a {formData.email}</p>}
         </div>
 
         <div className="flex items-center gap-6 mb-8">
@@ -173,11 +174,11 @@ function AuditResultModal({ result, onClose, formData }: { result: any; onClose:
             <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres las soluciones completas?</p>
             <p className="text-[#9A8E80] text-sm mb-4">Incluye: soluciones paso a paso, plan de 4 semanas, campañas personalizadas y presupuesto publicitario.</p>
             <div className="flex flex-col sm:flex-row gap-2">
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold">B</span><span className="ml-1">Pagar $9.99</span></Button>
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar $9.99 con Binance</Button>
               </a>
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp $9.99</Button>
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Otro%20m%C3%A9todo%20de%20pago" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Otro método de pago</Button>
               </a>
             </div>
           </div>
@@ -185,8 +186,11 @@ function AuditResultModal({ result, onClose, formData }: { result: any; onClose:
           <div className="rounded-2xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}60`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}20` }}>
             <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres que lo implementemos?</p>
             <div className="flex flex-col sm:flex-row gap-2">
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Binance</Button>
+              </a>
               <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Agenda llamada GRATIS</Button>
+                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Agenda llamada GRATIS</Button>
               </a>
             </div>
           </div>
@@ -261,6 +265,8 @@ export default function Home() {
   const [refLoading, setRefLoading] = useState(false);
   const [refResult, setRefResult] = useState<{ code: string; link: string; whatsappLink?: string; emailSent?: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [showCompletePayment, setShowCompletePayment] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -283,8 +289,7 @@ export default function Home() {
     if (!formData.name || !formData.email) { toast({ title: 'Campos requeridos', description: 'Nombre y email son obligatorios', variant: 'destructive' }); return; }
 
     if (formData.auditType === 'complete') {
-      const waMsg = encodeURIComponent(`Hola Daniela, quiero la auditoría completa de $9.99.\n\nNombre: ${formData.name}\nEmail: ${formData.email}\nNegocio: ${formData.businessType || 'No especificado'}\nSitio web: ${formData.website || 'No'}\nRed social: ${formData.socialLink || 'No'}\nFrustración: ${formData.frustration || 'No especificada'}`);
-      window.open(`https://wa.me/584221754245?text=${waMsg}`, '_blank');
+      setShowCompletePayment(true);
       return;
     }
 
@@ -292,7 +297,16 @@ export default function Home() {
     try {
       const res = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, referralCode: referralCode || undefined }) });
       const data = await res.json();
-      if (data.success) { setResult(data); toast({ title: '¡Auditoría generada!', description: 'Tu auditoría express está lista.' }); }
+      if (data.success) {
+        setResult(data);
+        toast({ title: '¡Auditoría generada!', description: 'Tu auditoría express está lista.' });
+        // Auto-trigger WhatsApp delivery
+        if (data.whatsappReport && formData.whatsapp) {
+          const waNumber = formData.whatsapp.replace(/[^0-9]/g, '');
+          const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(data.whatsappReport)}`;
+          window.open(waUrl, '_blank');
+        }
+      }
       else { toast({ title: 'Error', description: data.error, variant: 'destructive' }); }
     } catch { toast({ title: 'Error de conexión', variant: 'destructive' }); }
     finally { setLoading(false); }
@@ -313,6 +327,10 @@ export default function Home() {
 
   const copyLink = () => {
     if (refResult?.link) { navigator.clipboard.writeText(refResult.link); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
+
+  const copyCode = () => {
+    if (refResult?.code) { navigator.clipboard.writeText(refResult.code); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }
   };
 
   return (
@@ -615,10 +633,37 @@ export default function Home() {
                 <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Tu mayor frustración</Label><Textarea className="bg-[#0F0D0B] border-[#2A2520] text-[#E2D9CC] focus:border-[#7C8F58] rounded-xl min-h-[80px]" placeholder="Tengo visitas pero nadie compra..." value={formData.frustration} onChange={e => setFormData(p => ({ ...p, frustration: e.target.value }))} /></div>
                 {referralCode && <div className="rounded-2xl p-3 flex items-center gap-2 border" style={{ background: `${OLIVE}10`, border: `1px solid ${OLIVE}40` }}><Gift className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span className="text-sm" style={{ color: OLIVE_LIGHT }}>Referido por: <strong>{referrerName || referralCode}</strong></span></div>}
                 <Button type="submit" disabled={loading} className="w-full font-semibold text-lg h-14 text-white rounded-2xl animate-pulse-glow" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
-                  {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Analizando...</> : formData.auditType === 'free' ? <><Zap className="w-5 h-5 mr-2" />Obtener Auditoría Gratis</> : <><WhatsAppIcon className="w-5 h-5 mr-2" />Continuar por WhatsApp — $9.99</>}
+                  {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Analizando...</> : formData.auditType === 'free' ? <><Zap className="w-5 h-5 mr-2" />Obtener Auditoría Gratis</> : <><Zap className="w-5 h-5 mr-2" />Continuar — $9.99</>}
                 </Button>
                 <p className="text-center text-[#9A8E80] text-xs">Al enviar, aceptas recibir comunicaciones. No spam. Cancela cuando quieras.</p>
               </form>
+              {/* ─── COMPLETE AUDIT PAYMENT SECTION ─── */}
+              {showCompletePayment && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 rounded-3xl p-6 border overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, borderColor: `${OLIVE}50`, boxShadow: `0 0 40px ${OLIVE_GLOW}20, 0 8px 30px rgba(0,0,0,0.5)` }}>
+                  <h4 className="text-[#E2D9CC] font-bold text-lg mb-2 text-center">💳 Elige tu método de pago</h4>
+                  <p className="text-[#9A8E80] text-sm mb-5 text-center">Auditoría Completa — $9.99</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <a href={`https://wa.me/584221754245?text=${encodeURIComponent('Hola Daniela, quiero la auditoría completa de $9.99 — Pago Binance')}`} target="_blank" rel="noopener noreferrer" className="flex-1" onClick={async () => {
+                      // Save lead to DB before redirecting
+                      try { await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, auditType: 'complete', saveOnly: true, referralCode: referralCode || undefined }) }); } catch {}
+                      setShowCompletePayment(false);
+                    }}>
+                      <Button className="w-full font-semibold text-white rounded-2xl h-14 text-base" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 15px rgba(240,185,11,0.3)' }}>
+                        <span className="text-lg font-bold mr-2">B</span>Pagar $9.99 con Binance
+                      </Button>
+                    </a>
+                    <a href={`https://wa.me/584221754245?text=${encodeURIComponent('Hola Daniela, quiero la auditoría completa de $9.99 — Otro método de pago')}`} target="_blank" rel="noopener noreferrer" className="flex-1" onClick={async () => {
+                      // Save lead to DB before redirecting
+                      try { await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, auditType: 'complete', saveOnly: true, referralCode: referralCode || undefined }) }); } catch {}
+                      setShowCompletePayment(false);
+                    }}>
+                      <Button className="w-full font-semibold text-white rounded-2xl h-14 text-base" style={{ background: '#25D366', boxShadow: '0 0 15px rgba(37,211,102,0.3)' }}>
+                        <WhatsAppIcon className="w-5 h-5 mr-2" />Otro método de pago
+                      </Button>
+                    </a>
+                  </div>
+                </motion.div>
+              )}
             </FadeIn>
           </div>
         </section>
@@ -648,10 +693,10 @@ export default function Home() {
                     <CardContent className="space-y-2.5">
                       {pkg.features.map((f, j) => <div key={j} className="flex items-start gap-2 text-sm"><CheckCircle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#9A8E80]">{f}</span></div>)}
                       <div className="pt-4 space-y-2">
-                        <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20el%20paquete%20${pkg.name}%20${pkg.price}%20—%20Pago%20por%20Binance" target="_blank" rel="noopener noreferrer" className="block">
+                        <a href={`https://wa.me/584221754245?text=${encodeURIComponent(`Hola Daniela, quiero el paquete ${pkg.name} ${pkg.price} — Pago por Binance`)}`} target="_blank" rel="noopener noreferrer" className="block">
                           <Button className="w-full font-semibold rounded-2xl h-11 text-white" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar con Binance</Button>
                         </a>
-                        <a href={`https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20el%20paquete%20${pkg.name}%20${pkg.price}`} target="_blank" rel="noopener noreferrer" className="block">
+                        <a href={`https://wa.me/584221754245?text=${encodeURIComponent(`Hola Daniela, quiero el paquete ${pkg.name} ${pkg.price}`)}`} target="_blank" rel="noopener noreferrer" className="block">
                           <Button className="w-full font-semibold rounded-2xl h-11 text-white" style={pkg.popular ? { background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN } : { background: `${OLIVE}15`, borderColor: OLIVE, color: 'white', boxShadow: `0 0 10px ${OLIVE_GLOW}20` }} variant={pkg.popular ? 'default' : 'outline'}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp</Button>
                         </a>
                       </div>
@@ -710,17 +755,31 @@ export default function Home() {
                       <h4 className="text-[#E2D9CC] font-semibold text-lg">¡Tu enlace está listo!</h4>
                       <div className="flex items-center gap-2 bg-[#0F0D0B] rounded-xl p-3 border" style={{ borderColor: `${OLIVE}30` }}>
                         <code className="text-xs flex-1 break-all" style={{ color: OLIVE_LIGHT }}>{refResult.link}</code>
-                        <button onClick={copyLink} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors">
+                        <button onClick={copyLink} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar enlace">
                           {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
                         </button>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        {refResult.whatsappLink && (
-                          <a href={refResult.whatsappLink} target="_blank" rel="noopener noreferrer" className="flex-1">
-                            <Button className="w-full font-semibold text-white rounded-2xl h-10" style={{ background: '#25D366', boxShadow: '0 0 10px rgba(37,211,102,0.3)' }}><WhatsAppIcon className="w-4 h-4 mr-2" />Compartir por WhatsApp</Button>
-                          </a>
-                        )}
+                      <div className="flex items-center gap-2 bg-[#0F0D0B] rounded-xl p-3 border" style={{ borderColor: `${OLIVE}30` }}>
+                        <code className="text-sm flex-1 break-all font-bold" style={{ color: OLIVE_LIGHT }}>{refResult.code}</code>
+                        <button onClick={copyCode} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar código">
+                          {codeCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
+                        </button>
                       </div>
+                      <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                        <Button onClick={copyLink} className="flex-1 font-semibold text-white rounded-2xl h-12" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
+                          {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}{copied ? '¡Enlace copiado!' : 'Copiar enlace'}
+                        </Button>
+                        <Button onClick={copyCode} className="flex-1 font-semibold text-white rounded-2xl h-12" style={{ background: `${OLIVE}20`, border: `1px solid ${OLIVE}`, color: OLIVE_LIGHT }}>
+                          {codeCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}{codeCopied ? '¡Código copiado!' : 'Copiar código'}
+                        </Button>
+                      </div>
+                      {refResult.whatsappLink && (
+                        <a href={refResult.whatsappLink} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                          <Button className="w-full font-bold text-white rounded-2xl h-14 text-base" style={{ background: '#25D366', boxShadow: '0 0 20px rgba(37,211,102,0.4)' }}>
+                            <WhatsAppIcon className="w-6 h-6 mr-2" />Compartir por WhatsApp
+                          </Button>
+                        </a>
+                      )}
                       {refResult.emailSent && <p className="text-[#9AAC72] text-xs">✓ También lo enviamos a tu email</p>}
                       <p className="text-[#9A8E80] text-xs">Comparte este enlace y gana 10% por cada paquete vendido</p>
                     </div>
@@ -765,12 +824,12 @@ export default function Home() {
               <div className="rounded-3xl relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, border: `1px solid ${OLIVE}40`, boxShadow: `0 0 50px ${OLIVE_GLOW}20, 0 8px 40px rgba(0,0,0,0.5)` }}>
                 <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}10` }} />
                 <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE_LIGHT}08` }} />
-                <div className="relative z-10 p-6 md:p-10">
+                <div className="relative z-10 p-6 md:p-10 overflow-hidden">
                   <div className="flex items-center gap-3 mb-6">
                     <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
                     <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
                   </div>
-                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight">
+                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight break-words">
                     SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
                     <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
                   </h2>
@@ -793,23 +852,22 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-6 border" style={{ borderColor: `${OLIVE}30` }}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
-                        <Shield className="w-7 h-7 text-white" />
+                  <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 sm:gap-6 bg-[#0F0D0B]/60 backdrop-blur-sm rounded-2xl p-5 sm:p-6 border overflow-hidden" style={{ borderColor: `${OLIVE}30` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
+                        <Shield className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <p className="text-3xl font-bold text-[#E2D9CC]">$69.99</p>
-                        <p className="text-[#9A8E80] text-sm">Pago único — Landing + sistema</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-[#E2D9CC]">$69.99</p>
+                        <p className="text-[#9A8E80] text-xs sm:text-sm">Pago único — Landing + sistema</p>
                       </div>
                     </div>
-                    <div className="flex-1" />
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20para%20mi%20nicho%20%2469.99%20—%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
-                        <Button className="font-semibold text-white rounded-2xl h-12 px-6" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar $69.99</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20para%20mi%20nicho%20%2469.99%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                        <Button className="font-semibold text-white rounded-2xl h-10 px-4 text-sm" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="font-bold mr-1">B</span>Binance $69.99</Button>
                       </a>
-                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20para%20mi%20nicho%20%2469.99" target="_blank" rel="noopener noreferrer">
-                        <Button className="font-semibold text-white rounded-2xl h-12 px-6" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />WhatsApp</Button>
+                      <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20para%20mi%20nicho%20%2469.99" target="_blank" rel="noopener noreferrer">
+                        <Button className="font-semibold text-white rounded-2xl h-10 px-4 text-sm" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-1" />WhatsApp</Button>
                       </a>
                     </div>
                   </div>

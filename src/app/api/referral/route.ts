@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       // Send email with existing code
       const existingLink = `${process.env.NEXT_PUBLIC_SITE_URL || ''}?ref=${existing.code}`;
+      let emailSent = false;
       try {
         if (resend && process.env.RESEND_API_KEY) {
           await resend.emails.send({
@@ -58,14 +59,20 @@ export async function POST(request: NextRequest) {
             subject: `Tu código de referido — ${existing.code}`,
             text: `¡Hola ${name}!\n\nYa tienes un código de referido registrado:\n\n🔗 Tu enlace: ${existingLink}\n📋 Tu código: ${existing.code}\n\nComparte este enlace y gana 10% de comisión por cada paquete vendido:\n- Impulso $197 → $19.70\n- Crecimiento $497 → $49.70\n- Dominio $997 → $99.70\n\nDaniela Silva, Estratega Digital`,
           });
+          emailSent = true;
         }
       } catch (e) { console.error('Referral email error:', e); }
+
+      // Build WhatsApp share link for existing code
+      const waMsg = encodeURIComponent(`¡Hola ${name}! Tu código de referido:\n\n🔗 Enlace: ${existingLink}\n📋 Código: ${existing.code}\n\nComparte y gana 10% por cada paquete vendido.\n- Impulso $197 → $19.70\n- Crecimiento $497 → $49.70\n- Dominio $997 → $99.70`);
 
       return NextResponse.json({
         success: true,
         code: existing.code,
         referralLink: existingLink,
-        message: 'Ya tienes un código de referido. Te lo enviamos a tu email.'
+        whatsappLink: `https://wa.me/?text=${waMsg}`,
+        emailSent,
+        message: emailSent ? 'Ya tienes un código. Te lo enviamos a tu email.' : 'Ya tienes un código de referido registrado.'
       });
     }
 

@@ -1,94 +1,66 @@
----
-Task ID: 1
-Agent: Main Agent
-Task: Build complete AI Audit Landing Page for LLAVE DIGITAL 3.0
+# Worklog — Daniela Silva AI Digital Audit Landing Page Fixes
 
-Work Log:
-- Initialized Next.js 16 project with fullstack-dev skill
-- Designed and implemented Prisma schema with 3 models: Lead, Referral, AuditResult
-- Built audit-engine.ts with z-ai-web-dev-sdk integration for AI-powered report generation
-- Created /api/audit POST route that receives form data, generates AI audit, saves to DB, returns results
-- Created /api/referral GET/POST routes for referral code tracking and creation
-- Built complete landing page with Daniela's brand colors (dark luxury theme)
-- Implemented all sections: Hero, Social Proof, What Is It, How It Works, Free vs Paid, Report Details, Audit Form, Packages, Referral Program, Testimonials, FAQ, Final CTA, Footer
-- Added referral code detection from URL params (?ref=CODE)
-- Added promo countdown timer for 4-hour urgency
-- Implemented result modal with score circle, problems display, and package CTAs
-- All code passes lint checks
-- Dev server running successfully on port 3000
+## Date: 2026-03-05
 
-Stage Summary:
-- Full landing page is live with all agreed-upon features
-- AI audit engine generates reports using z-ai-web-dev-sdk (free, no API key needed)
-- Referral tracking system functional with unique codes
-- Brand colors match Daniela's portfolio: #0F0D0B, #1E1B16, #6B7F4E, #8FA36E, #E2D9CC, #9A8E80
-- Zero cost infrastructure: Vercel + SQLite + z-ai-web-dev-sdk
+### 1. Fix Audit Report Delivery (FREE audit)
 
----
-Task ID: 2
-Agent: Main Agent
-Task: Apply 17 edits requested by Daniela to the landing page
+**File: `/src/app/api/audit/route.ts`**
+- Added `DANIELA_EMAIL` constant for lead notification.
+- Added **resend email handler**: When `resendEmail: true` and `email` are sent in the request body, the API now looks up the existing audit by email (using `db.lead.findFirst` with included `auditResults`), retrieves the stored report, and resends the email **without regenerating** the audit.
+- Added **notification email to Daniela**: After a new lead submits an audit, a notification email is sent to `DANIELA_EMAIL` with the lead's name, email, WhatsApp, business type, score, and other details.
 
-Work Log:
-- Removed "Impulsado por Inteligencia Artificial" badge from hero
-- Added blinking/pulsing animation to promo banner
-- Changed brand from "LLAVE DIGITAL 3.0" to "Daniela Silva, Estratega Digital" throughout
-- Made hero title UPPERCASE with tighter line-height
-- Added bullet points (viñetas) to QUÉ/CÓMO/PORCENTAJE section
-- Redesigned "What is it" cards: title next to icon, centered description, olive border, hover effects
-- Made Express card green-themed (matching Complete card) with green checks and border
-- Updated report includes: "Presupuesto Publicitario: sugerencias para conseguir clientes potenciales"
-- Changed "2 Conjuntos de Campaña" to "Campañas Personalizadas: estrategias de anuncios, presupuesto adicional"
-- Added social link field to form
-- Built referral signup form with link generator and copy button
-- Changed referral commissions to 10% on 3 packages only (removed audit commission)
-- Centered "Cómo funciona" section with compact layout
-- Testimonials: compact circular horizontal scroll with English testimonials added
-- Added new "White Label Audit" section after FAQ ($69.99 for niche-adapted audit)
-- Changed green to premium olive (#5C6B3C / #7A8C52)
-- Added animations: shimmer, pulse, hover effects, motion
-- Footer: social icons with brand colors (Instagram pink, TikTok cyan, WhatsApp green)
-- Reduced spacing between sections
-- $9.99 audit now redirects to WhatsApp for payment instead of processing as free
-- Updated audit engine with campaign budget formula: 20% of service average, split into 2 sets of 4-5 ads
-- Added planAction with 2+ steps per week
-- Added serviceMinPrice and serviceMaxPrice fields for budget calculation
-- Updated API to include new fields
+**File: `/src/app/page.tsx`**
+- **Auto-trigger WhatsApp delivery**: After a free audit is generated (`setResult(data)`), the code now automatically opens a WhatsApp link with the report sent to the user's WhatsApp number (if provided).
+- **Fixed `sendToEmail` in modal**: The modal now sends `{ email, resendEmail: true }` instead of re-submitting the full form data, so the API handler resends the existing report instead of regenerating.
 
-Stage Summary:
-- All 17 edits applied and tested
-- Lint passes clean
-- Dev server running and API processing audits successfully
-- Premium olive green (#5C6B3C) applied throughout
-- Referral program functional with signup form
-- White-label audit section added at $69.99
----
-Task ID: 1
-Agent: Main Agent
-Task: Apply major visual overhaul to the Auditoría Digital landing page per user's 8-point improvement request
+### 2. Add Binance + WhatsApp Payment Buttons for $9.99 Complete Audit
 
-Work Log:
-- Copied user's photo (yo avatar.jpg) to /public/daniela-hero.jpg for hero background
-- Updated layout.tsx: replaced Inter with Poppins font (modern, rounded, fresh typography)
-- Completely rewrote page.tsx with all visual improvements:
-  - Lightened green by 2 tones: OLIVE #5C6B3C → #7C8F58, OLIVE_LIGHT #7A8C52 → #9AAC72
-  - All button text changed to white with neon glow borders
-  - Buttons now have rounded-2xl corners (much rounder)
-  - Added custom TikTok SVG icon and WhatsApp SVG icon (correct brand icons)
-  - Instagram handle corrected to @DANIELADIGITAL3.0 → instagram.com/danieladigital3.0
-  - Footer social icons now have brand-colored containers (Instagram gradient, TikTok neon, WhatsApp green)
-  - Hero section now has user's photo as background with gradient overlay
-  - Added Value Ladder section showing price progression from Free → $997
-  - Redesigned "How it Works" as a timeline with connected dots and time estimates
-  - All texts and paragraphs centered throughout the page
-  - Cards have much more depth: rounded-3xl, deeper shadows, neon border glow
-  - Completely redesigned the $69.99 niche audit section with premium layout, gradient backgrounds, shield icon, feature grid
-  - Added subtle animations: pulse-glow on key elements, float on decorative orbs, shimmer on text
-  - Form has neon glow container border, rounded inputs
-  - Overall high-ticket premium feel with glassmorphism effects
-- Updated globals.css with new color values, animations (neon-pulse, banner-glow, blink-banner), scrollbar-hide for testimonials
+**File: `/src/app/page.tsx`**
+- Added `showCompletePayment` state.
+- Changed `handleSubmit` for `auditType === 'complete'`: instead of auto-opening WhatsApp, it now sets `showCompletePayment = true`.
+- Added a new payment selection card below the form (when `showCompletePayment` is true) with:
+  - Yellow Binance button: "Pagar $9.99 con Binance" → opens `wa.me/584221754245` with "Hola Daniela, quiero la auditoría completa de $9.99 — Pago Binance"
+  - Green WhatsApp button: "Otro método de pago" → opens `wa.me/584221754245` with "Hola Daniela, quiero la auditoría completa de $9.99 — Otro método de pago"
+- Card uses the site's dark luxury aesthetic with olive green borders and neon glow.
+- Updated the submit button text from "Continuar por WhatsApp — $9.99" to "Continuar — $9.99".
 
-Stage Summary:
-- Build compiles successfully with 0 errors
-- Dev server returns HTTP 200
-- All 8 user-requested improvements applied plus additional premium enhancements
+### 3. Fix Affiliate/Referral System
+
+**File: `/src/app/page.tsx`**
+- Added `codeCopied` state and `copyCode` function.
+- Added a **"Copiar código"** button alongside the existing "Copiar enlace" button — both are full-width, prominent h-12 buttons.
+- Made the **WhatsApp share button** much more prominent: changed from h-10 to h-14, font-bold, text-base, w-full with larger icon (w-6 h-6).
+- Added a separate display for the referral code with its own copy button in a code box.
+- Added title attributes to copy buttons for better UX.
+
+### 4. Move $69.99 Section Before FAQ
+
+No change needed — already in correct order (White Label section at line ~812, FAQ at line ~872).
+
+### 5. Fix $69.99 Card Overflow
+
+**File: `/src/app/page.tsx`**
+- Changed "Pago único — Landing + sistema completo" to "Pago único — Landing + sistema"
+- Added `overflow-hidden` to the inner content div (`relative z-10 p-6 md:p-10`)
+- Added `overflow-hidden` to the price/buttons container div
+- Made the price/buttons section responsive:
+  - Mobile: stacks vertically (`flex-col`)
+  - Desktop: row with `flex-wrap` (`sm:flex-row flex-wrap`)
+- Made buttons smaller: h-10 (from h-12), px-4 (from px-6), text-sm
+- Shorter button text: "Binance $69.99" and "WhatsApp" (from "Pagar $69.99" and "WhatsApp")
+- Added `break-words` to the heading
+- Made Shield icon smaller (w-12 h-12 from w-14 h-14, icon w-6 h-6 from w-7 h-7)
+- Made price text responsive: `text-2xl sm:text-3xl`
+
+### 6. Additional Improvements
+
+**File: `/src/app/page.tsx`**
+- **Modal delivery message**: Changed the delivery options section in the free audit modal to show a prominent message: "📧 Tu reporte fue enviado a tu email" and "También puedes enviarlo a tu WhatsApp:" — with a gradient background for more visibility.
+- **Complete audit modal buttons**: Updated the free audit modal's upgrade CTA to show "Pagar $9.99 con Binance" (Binance button) and "Otro método de pago" (WhatsApp button) instead of the previous generic buttons.
+- **Complete audit modal (paid)**: Added a Binance payment option alongside the existing "Agenda llamada GRATIS" WhatsApp button.
+- Changed "Enviar por Email" to "Reenviar por Email" and "¡Enviado!" to "¡Email reenviado!" for clarity.
+
+## Files Modified
+
+1. `/home/z/my-project/src/app/api/audit/route.ts` — Added resend email handler (no regeneration), Daniela lead notification
+2. `/home/z/my-project/src/app/page.tsx` — All frontend changes (payment flow, referral UX, overflow fixes, modal improvements)
