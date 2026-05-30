@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       email: body.email || '',
       whatsapp: body.whatsapp || '',
       website: body.website || '',
+      socialLink: body.socialLink || '',
       businessType: body.businessType || '',
       followers: body.followers || '',
       monthlyRevenue: body.monthlyRevenue || '',
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
       frustration: body.frustration || '',
       auditType: body.auditType || 'free',
       referralCode: body.referralCode || undefined,
+      serviceMinPrice: body.serviceMinPrice || undefined,
+      serviceMaxPrice: body.serviceMaxPrice || undefined,
     };
 
     if (!auditInput.name || !auditInput.email) {
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
         },
         problems: result.problems,
         adBudget: result.adBudget,
+        planAction: result.planAction,
         reportMarkdown: completeReport,
         message: 'Tu auditoría completa ha sido generada.'
       });

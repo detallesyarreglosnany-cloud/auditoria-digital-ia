@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import {
-  Search, Zap, Bot, Globe, TrendingUp, Shield, Clock,
+  Search, Zap, Bot, Globe, TrendingUp, Clock,
   CheckCircle, ArrowRight, Star, Users, BarChart3, MessageCircle,
   ChevronDown, ChevronUp, Sparkles, AlertTriangle, Target, MousePointerClick,
-  Loader2, ExternalLink, Gift, Percent, Megaphone, Handshake
+  Loader2, Gift, Percent, Megaphone, Handshake, Instagram, Film,
+  CircleDollarSign, Store, Palette, Copy, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,1102 +24,646 @@ import {
 } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 
-// ─── Animation helpers ───────────────────────────────────
-function FadeInSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+// Premium olive green
+const OLIVE = '#5C6B3C';
+const OLIVE_LIGHT = '#7A8C52';
+const OLIVE_GLOW = 'rgba(92,107,60,0.4)';
+
+function FadeIn({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const inView = useInView(ref, { once: true, margin: '-60px' });
   return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-      transition={{ duration: 0.7, ease: 'easeOut' }}
-      className={className}
-    >
+    <motion.div ref={ref} initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}} transition={{ duration: 0.6, ease: 'easeOut' }} className={className}>
       {children}
     </motion.div>
   );
 }
 
-// ─── Score Circle Component ──────────────────────────────
 function ScoreCircle({ score, size = 120 }: { score: number; size?: number }) {
-  const radius = (size - 12) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 70 ? '#8FA36E' : score >= 40 ? '#D4A843' : '#DC2626';
-
+  const r = (size - 12) / 2;
+  const c = 2 * Math.PI * r;
+  const o = c - (score / 100) * c;
+  const col = score >= 70 ? OLIVE_LIGHT : score >= 40 ? '#D4A843' : '#DC2626';
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#2A2520" strokeWidth="8" />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth="8"
-          strokeDasharray={circumference} strokeDashoffset={offset}
-          strokeLinecap="round" className="score-circle"
-        />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2A2520" strokeWidth="8" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth="8" strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1.5s ease-out' }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color }}>{score}</span>
+        <span className="text-2xl font-bold" style={{ color: col }}>{score}</span>
         <span className="text-xs text-[#9A8E80]">/100</span>
       </div>
     </div>
   );
 }
 
-// ─── Result Modal ────────────────────────────────────────
 function AuditResultModal({ result, onClose }: { result: any; onClose: () => void }) {
-  const [showFullReport, setShowFullReport] = useState(false);
-
+  const [showFull, setShowFull] = useState(false);
   if (!result) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-[#1E1B16] rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 border border-[#2A2520]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-[#E2D9CC]">
-              {result.auditType === 'free' ? 'Tu Auditoría Express' : 'Tu Auditoría Completa'}
-            </h3>
-            <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl">&times;</button>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#1E1B16] rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 border border-[#2A2520]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-[family-name:var(--font-playfair)] text-2xl text-[#E2D9CC]">
+            {result.auditType === 'free' ? 'Tu Auditoría Express' : 'Tu Auditoría Completa'}
+          </h3>
+          <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl">&times;</button>
+        </div>
+        <div className="flex items-center gap-6 mb-8">
+          <ScoreCircle score={result.score} />
+          <div>
+            <p className="text-[#9A8E80] text-sm mb-1">Score General</p>
+            <p className="text-lg text-[#E2D9CC]">
+              {result.score >= 70 ? 'Va bien, pero puede mejorar' : result.score >= 40 ? 'Hay oportunidades importantes' : 'Necesita atención urgente'}
+            </p>
           </div>
-
-          {/* Score */}
-          <div className="flex items-center gap-6 mb-8">
-            <ScoreCircle score={result.score} />
-            <div>
-              <p className="text-[#9A8E80] text-sm mb-1">Score General</p>
-              <p className="text-lg text-[#E2D9CC]">
-                {result.score >= 70 ? 'Tu negocio va bien, pero puede mejorar' :
-                 result.score >= 40 ? 'Hay oportunidades importantes de mejora' :
-                 'Tu negocio necesita atención urgente'}
-              </p>
-            </div>
-          </div>
-
-          {/* Problems */}
-          <div className="space-y-4 mb-6">
-            {result.problems.map((p: any, i: number) => (
-              <div key={i} className="bg-[#0F0D0B] rounded-xl p-4 border border-[#2A2520]">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
-                  <div>
-                    <h4 className="text-[#E2D9CC] font-semibold mb-1">{p.title}</h4>
-                    <p className="text-[#9A8E80] text-sm mb-2">
-                      Mejora potencial: hasta <span className="text-[#8FA36E] font-semibold">{p.impactPercent}%</span>
-                    </p>
-                    {result.auditType === 'complete' && (
-                      <div className="text-sm text-[#9A8E80]">
-                        <p className="mb-2">{p.description}</p>
-                        <p className="text-[#E2D9CC] font-medium mb-1">Solución:</p>
-                        <p className="mb-2">{p.solution}</p>
-                        {p.steps && (
-                          <ol className="list-decimal list-inside space-y-1">
-                            {p.steps.map((s: string, j: number) => (
-                              <li key={j}>{s}</li>
-                            ))}
-                          </ol>
-                        )}
-                      </div>
-                    )}
-                  </div>
+        </div>
+        <div className="space-y-4 mb-6">
+          {result.problems.map((p: any, i: number) => (
+            <div key={i} className="bg-[#0F0D0B] rounded-xl p-4 border border-[#2A2520]">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="text-[#E2D9CC] font-semibold mb-1">{p.title}</h4>
+                  <p className="text-[#9A8E80] text-sm mb-2">Mejora potencial: hasta <span style={{ color: OLIVE_LIGHT }} className="font-semibold">{p.impactPercent}%</span></p>
+                  {result.auditType === 'complete' && (
+                    <div className="text-sm text-[#9A8E80]">
+                      <p className="mb-2">{p.description}</p>
+                      <p className="text-[#E2D9CC] font-medium mb-1">Solución:</p>
+                      <p className="mb-2">{p.solution}</p>
+                      {p.steps && <ol className="list-decimal list-inside space-y-1">{p.steps.map((s: string, j: number) => <li key={j}>{s}</li>)}</ol>}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Free audit CTA */}
-          {result.auditType === 'free' && (
-            <div className="bg-gradient-to-r from-[#6B7F4E]/20 to-[#8FA36E]/20 rounded-xl p-6 border border-[#6B7F4E]/30 mb-6">
-              <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres las soluciones completas?</p>
-              <p className="text-[#9A8E80] text-sm mb-4">
-                La auditoría completa incluye: soluciones paso a paso, plan de acción de 4 semanas,
-                presupuesto publicitario recomendado y estimaciones de mejora en porcentaje.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  className="bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B] font-semibold"
-                  onClick={() => {
-                    onClose();
-                    setTimeout(() => {
-                      document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' });
-                    }, 300);
-                  }}
-                >
-                  Auditoría Completa — $9.99
-                </Button>
-                <a
-                  href="https://wa.me/584221754245"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" className="border-[#6B7F4E] text-[#8FA36E] hover:bg-[#6B7F4E]/10">
-                    <MessageCircle className="w-4 h-4 mr-2" /> Hablar con Daniela
-                  </Button>
-                </a>
-              </div>
             </div>
-          )}
-
-          {/* Complete audit - packages */}
-          {result.auditType === 'complete' && (
-            <div className="bg-gradient-to-r from-[#6B7F4E]/20 to-[#8FA36E]/20 rounded-xl p-6 border border-[#6B7F4E]/30 mb-6">
-              <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres que lo implementemos por ti?</p>
-              <p className="text-[#9A8E80] text-sm mb-4">
-                Agenda una llamada gratuita y te explicamos cómo podemos transformar tu negocio.
-              </p>
-              <a
-                href="https://wa.me/584221754245"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button className="bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B] font-semibold">
-                  <MessageCircle className="w-4 h-4 mr-2" /> Agenda tu llamada GRATIS
-                </Button>
+          ))}
+        </div>
+        {result.auditType === 'free' ? (
+          <div className="rounded-xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}50` }}>
+            <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres las soluciones completas?</p>
+            <p className="text-[#9A8E80] text-sm mb-4">Incluye: soluciones paso a paso, plan de 4 semanas, campañas personalizadas y presupuesto publicitario.</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
+                <Button className="font-semibold text-[#0F0D0B]" style={{ background: OLIVE }}>Auditoría Completa — $9.99</Button>
+              </a>
+              <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" style={{ borderColor: OLIVE, color: OLIVE_LIGHT }}>Hablar con Daniela</Button>
               </a>
             </div>
-          )}
-
-          {/* Full report toggle for complete */}
-          {result.auditType === 'complete' && result.reportMarkdown && (
-            <div>
-              <button
-                onClick={() => setShowFullReport(!showFullReport)}
-                className="text-[#8FA36E] text-sm flex items-center gap-1 hover:underline"
-              >
-                {showFullReport ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                {showFullReport ? 'Ocultar' : 'Ver'} reporte completo
-              </button>
-              {showFullReport && (
-                <div className="mt-4 bg-[#0F0D0B] rounded-xl p-4 border border-[#2A2520] text-sm text-[#9A8E80] max-h-96 overflow-y-auto whitespace-pre-wrap">
-                  {result.reportMarkdown}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Disclaimer */}
-          <p className="text-[#9A8E80] text-xs mt-6 border-t border-[#2A2520] pt-4">
-            ⚠️ Esta auditoría es un diagnóstico orientativo basado en los datos proporcionados. Los porcentajes de mejora son estimaciones de potencial, no garantías de resultados. Los resultados dependen de la implementación y la inversión publicitaria.
-          </p>
-        </motion.div>
+          </div>
+        ) : (
+          <div className="rounded-xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}50` }}>
+            <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres que lo implementemos?</p>
+            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
+              <Button className="font-semibold text-[#0F0D0B]" style={{ background: OLIVE }}><MessageCircle className="w-4 h-4 mr-2" />Agenda tu llamada GRATIS</Button>
+            </a>
+          </div>
+        )}
+        {result.auditType === 'complete' && result.reportMarkdown && (
+          <div>
+            <button onClick={() => setShowFull(!showFull)} className="text-sm flex items-center gap-1 hover:underline" style={{ color: OLIVE_LIGHT }}>
+              {showFull ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showFull ? 'Ocultar' : 'Ver'} reporte completo
+            </button>
+            {showFull && <div className="mt-4 bg-[#0F0D0B] rounded-xl p-4 border border-[#2A2520] text-sm text-[#9A8E80] max-h-96 overflow-y-auto whitespace-pre-wrap">{result.reportMarkdown}</div>}
+          </div>
+        )}
+        <p className="text-[#9A8E80] text-xs mt-6 border-t border-[#2A2520] pt-4">⚠️ Esta auditoría es un diagnóstico orientativo. Los porcentajes son estimaciones de potencial, no garantías de resultados.</p>
       </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────
 export default function Home() {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    name: '', email: '', whatsapp: '', website: '', businessType: '',
-    followers: '', monthlyRevenue: '', revenueGoal: '',
+    name: '', email: '', whatsapp: '', website: '', socialLink: '',
+    businessType: '', followers: '', monthlyRevenue: '', revenueGoal: '',
     usesAutomation: false, frustration: '', auditType: 'free' as 'free' | 'complete',
+    serviceMinPrice: '', serviceMaxPrice: '',
   });
   const [referralCode, setReferralCode] = useState('');
   const [referrerName, setReferrerName] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const [countdown, setCountdown] = useState({ hours: 3, minutes: 59, seconds: 59 });
+  const [countdown, setCountdown] = useState({ h: 3, m: 59, s: 59 });
 
-  // Check for referral code in URL
+  // Referral signup
+  const [refSignup, setRefSignup] = useState({ name: '', email: '', phone: '' });
+  const [refLoading, setRefLoading] = useState(false);
+  const [refResult, setRefResult] = useState<{ code: string; link: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    if (ref) {
-      setReferralCode(ref);
-      // Fetch referrer name
-      fetch(`/api/referral?code=${ref}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.valid) setReferrerName(data.referrerName);
-        })
-        .catch(() => {});
-    }
+    const p = new URLSearchParams(window.location.search);
+    const ref = p.get('ref');
+    if (ref) { setReferralCode(ref); fetch(`/api/referral?code=${ref}`).then(r => r.json()).then(d => { if (d.valid) setReferrerName(d.referrerName); }).catch(() => {}); }
   }, []);
 
-  // Promo countdown
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { hours: prev.hours, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setCountdown(prev => {
+      if (prev.s > 0) return { ...prev, s: prev.s - 1 };
+      if (prev.m > 0) return { h: prev.h, m: prev.m - 1, s: 59 };
+      if (prev.h > 0) return { h: prev.h - 1, m: 59, s: 59 };
+      return prev;
+    }), 1000);
+    return () => clearInterval(t);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
-      toast({ title: 'Campos requeridos', description: 'Nombre y email son obligatorios', variant: 'destructive' });
+    if (!formData.name || !formData.email) { toast({ title: 'Campos requeridos', description: 'Nombre y email son obligatorios', variant: 'destructive' }); return; }
+
+    if (formData.auditType === 'complete') {
+      const waMsg = encodeURIComponent(`Hola Daniela, quiero la auditoría completa de $9.99.\n\nNombre: ${formData.name}\nEmail: ${formData.email}\nNegocio: ${formData.businessType || 'No especificado'}\nSitio web: ${formData.website || 'No'}\nRed social: ${formData.socialLink || 'No'}\nFrustración: ${formData.frustration || 'No especificada'}`);
+      window.open(`https://wa.me/584221754245?text=${waMsg}`, '_blank');
       return;
     }
+
     setLoading(true);
     try {
-      const res = await fetch('/api/audit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, referralCode: referralCode || undefined }),
-      });
+      const res = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...formData, referralCode: referralCode || undefined }) });
       const data = await res.json();
-      if (data.success) {
-        setResult(data);
-        toast({
-          title: '¡Auditoría generada!',
-          description: data.auditType === 'free'
-            ? 'Tu auditoría express está lista. Revisa tus resultados.'
-            : 'Tu auditoría completa está lista. Revisa tu reporte detallado.',
-        });
-      } else {
-        toast({ title: 'Error', description: data.error || 'Intenta de nuevo', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'Error de conexión', description: 'Intenta de nuevo en unos minutos', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+      if (data.success) { setResult(data); toast({ title: '¡Auditoría generada!', description: 'Tu auditoría express está lista.' }); }
+      else { toast({ title: 'Error', description: data.error, variant: 'destructive' }); }
+    } catch { toast({ title: 'Error de conexión', variant: 'destructive' }); }
+    finally { setLoading(false); }
+  };
+
+  const handleRefSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refSignup.name || !refSignup.email) { toast({ title: 'Campos requeridos', variant: 'destructive' }); return; }
+    setRefLoading(true);
+    try {
+      const res = await fetch('/api/referral', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(refSignup) });
+      const data = await res.json();
+      if (data.success) { setRefResult({ code: data.code, link: data.referralLink }); toast({ title: '¡Código creado!' }); }
+      else { toast({ title: 'Error', description: data.error, variant: 'destructive' }); }
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+    finally { setRefLoading(false); }
+  };
+
+  const copyLink = () => {
+    if (refResult?.link) { navigator.clipboard.writeText(refResult.link); setCopied(true); setTimeout(() => setCopied(false), 2000); }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0F0D0B]">
-      {/* ─── Promo Banner ─── */}
-      <div className="bg-[#6B7F4E] text-[#0F0D0B] text-center py-2 px-4 text-sm font-semibold overflow-hidden">
+      {/* ─── BLINKING PROMO BANNER ─── */}
+      <div className="text-[#0F0D0B] text-center py-2 px-4 text-sm font-bold overflow-hidden animate-pulse" style={{ background: `linear-gradient(90deg, ${OLIVE}, ${OLIVE_LIGHT}, ${OLIVE})`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite, pulse 1s ease-in-out infinite' }}>
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <Gift className="w-4 h-4" />
           <span>OFERTA: Adquiere un paquete HOY y tu auditoría es GRATIS + $9.99 de descuento</span>
-          <span className="bg-[#0F0D0B] text-[#8FA36E] px-2 py-0.5 rounded text-xs font-mono">
-            {String(countdown.hours).padStart(2,'0')}:{String(countdown.minutes).padStart(2,'0')}:{String(countdown.seconds).padStart(2,'0')}
+          <span className="bg-[#0F0D0B] px-2 py-0.5 rounded text-xs font-mono" style={{ color: OLIVE_LIGHT }}>
+            {String(countdown.h).padStart(2,'0')}:{String(countdown.m).padStart(2,'0')}:{String(countdown.s).padStart(2,'0')}
           </span>
         </div>
       </div>
 
       {/* ─── NAV ─── */}
-      <nav className="border-b border-[#2A2520] px-4 md:px-8 py-4">
+      <nav className="border-b border-[#2A2520] px-4 md:px-8 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#6B7F4E] flex items-center justify-center">
-              <Zap className="w-4 h-4 text-[#0F0D0B]" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: OLIVE }}><Zap className="w-4 h-4 text-[#0F0D0B]" /></div>
+            <div>
+              <span className="font-[family-name:var(--font-playfair)] text-base text-[#E2D9CC] italic">Daniela Silva</span>
+              <span className="text-[#9A8E80] text-xs ml-2 hidden sm:inline">Estratega Digital</span>
             </div>
-            <span className="font-[family-name:var(--font-playfair)] text-lg text-[#E2D9CC] italic">LLAVE DIGITAL 3.0</span>
           </div>
-          <a
-            href="https://wa.me/584221754245"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" size="sm" className="border-[#6B7F4E] text-[#8FA36E] hover:bg-[#6B7F4E]/10">
-              <MessageCircle className="w-4 h-4 mr-1" /> WhatsApp
-            </Button>
+          <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" style={{ borderColor: OLIVE, color: OLIVE_LIGHT }}> <MessageCircle className="w-4 h-4 mr-1" /> WhatsApp </Button>
           </a>
         </div>
       </nav>
 
       <main className="flex-1">
         {/* ─── HERO ─── */}
-        <section className="relative px-4 md:px-8 py-16 md:py-24 overflow-hidden">
-          {/* Background glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#6B7F4E]/5 rounded-full blur-3xl pointer-events-none" />
-
+        <section className="relative px-4 md:px-8 py-14 md:py-20 overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}08` }} />
           <div className="max-w-4xl mx-auto text-center relative z-10">
-            <FadeInSection>
-              <Badge className="bg-[#6B7F4E]/20 text-[#8FA36E] border-[#6B7F4E]/30 mb-6">
-                <Sparkles className="w-3 h-3 mr-1" /> Impulsado por Inteligencia Artificial
-              </Badge>
-            </FadeInSection>
-
-            <FadeInSection>
-              <h1 className="font-[family-name:var(--font-playfair)] text-4xl md:text-5xl lg:text-6xl text-[#E2D9CC] leading-tight mb-6">
+            <FadeIn>
+              <h1 className="font-[family-name:var(--font-playfair)] text-3xl md:text-5xl lg:text-[3.4rem] text-[#E2D9CC] leading-[1.1] mb-5 uppercase tracking-wide">
                 Descubre <span className="animate-shimmer">exactamente</span> por qué tu negocio digital no vende lo que debería
               </h1>
-            </FadeInSection>
-
-            <FadeInSection>
-              <p className="text-[#9A8E80] text-lg md:text-xl max-w-2xl mx-auto mb-8">
-                Auditoría inteligente que analiza tu negocio en minutos y te dice QUÉ falla, CÓMO solucionarlo y qué PORCENTAJE de mejora puedes lograr.
+            </FadeIn>
+            <FadeIn>
+              <p className="text-[#9A8E80] text-base md:text-lg max-w-2xl mx-auto mb-8">
+                Auditoría inteligente que analiza tu negocio y te dice:
               </p>
-            </FadeInSection>
-
+              <ul className="text-[#9A8E80] text-base md:text-lg max-w-xl mx-auto mb-8 space-y-2 text-left">
+                <li className="flex items-start gap-2"><span style={{ color: OLIVE_LIGHT }}>•</span><span>QUÉ falla en tu negocio digital</span></li>
+                <li className="flex items-start gap-2"><span style={{ color: OLIVE_LIGHT }}>•</span><span>CÓMO solucionarlo paso a paso</span></li>
+                <li className="flex items-start gap-2"><span style={{ color: OLIVE_LIGHT }}>•</span><span>Qué PORCENTAJE de mejora puedes lograr</span></li>
+              </ul>
+            </FadeIn>
             {referrerName && (
-              <FadeInSection>
-                <div className="bg-[#1E1B16] border border-[#6B7F4E]/30 rounded-xl px-4 py-3 inline-flex items-center gap-2 mb-6">
-                  <Handshake className="w-4 h-4 text-[#8FA36E]" />
-                  <span className="text-sm text-[#E2D9CC]">
-                    <strong className="text-[#8FA36E]">{referrerName}</strong> te invitó — los DOS reciben beneficio
-                  </span>
+              <FadeIn>
+                <div className="bg-[#1E1B16] border rounded-xl px-4 py-3 inline-flex items-center gap-2 mb-5" style={{ borderColor: `${OLIVE}50` }}>
+                  <Handshake className="w-4 h-4" style={{ color: OLIVE_LIGHT }} />
+                  <span className="text-sm text-[#E2D9CC]"><strong style={{ color: OLIVE_LIGHT }}>{referrerName}</strong> te invitó — los DOS reciben beneficio</span>
                 </div>
-              </FadeInSection>
+              </FadeIn>
             )}
-
-            <FadeInSection>
+            <FadeIn>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button
-                  size="lg"
-                  className="bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B] font-semibold text-lg px-8 h-14 animate-pulse-glow"
-                  onClick={() => document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' })}
-                >
+                <Button size="lg" className="text-[#0F0D0B] font-semibold text-lg px-8 h-14" style={{ background: OLIVE }} onClick={() => document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' })}>
                   Comenzar Auditoría Gratis <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-[#6B7F4E] text-[#8FA36E] hover:bg-[#6B7F4E]/10 text-lg px-8 h-14"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, auditType: 'complete' }));
-                    document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
+                <Button size="lg" variant="outline" className="text-lg px-8 h-14" style={{ borderColor: OLIVE, color: OLIVE_LIGHT }} onClick={() => { setFormData(p => ({ ...p, auditType: 'complete' })); document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' }); }}>
                   Auditoría Completa — $9.99
                 </Button>
               </div>
-            </FadeInSection>
+            </FadeIn>
           </div>
         </section>
 
-        {/* ─── SOCIAL PROOF BAR ─── */}
-        <section className="border-y border-[#2A2520] py-6 px-4">
+        {/* ─── SOCIAL PROOF ─── */}
+        <section className="border-y border-[#2A2520] py-4 px-4">
           <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-8 text-[#9A8E80] text-sm">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#8FA36E]" />
-              <span><strong className="text-[#E2D9CC]">10+</strong> testimonios</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[#8FA36E]" />
-              <span><strong className="text-[#E2D9CC]">7</strong> países</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-[#8FA36E]" />
-              <span><strong className="text-[#E2D9CC]">8+</strong> años de experiencia</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-[#8FA36E]" />
-              <span><strong className="text-[#E2D9CC]">IA</strong> de última generación</span>
-            </div>
+            <div className="flex items-center gap-2"><Users className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span><strong className="text-[#E2D9CC]">10+</strong> testimonios</span></div>
+            <div className="flex items-center gap-2"><Globe className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span><strong className="text-[#E2D9CC]">7</strong> países</span></div>
+            <div className="flex items-center gap-2"><Star className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span><strong className="text-[#E2D9CC]">8+</strong> años de experiencia</span></div>
+            <div className="flex items-center gap-2"><Bot className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span><strong className="text-[#E2D9CC]">IA</strong> de última generación</span></div>
           </div>
         </section>
 
         {/* ─── WHAT IS IT ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20">
+        <section className="px-4 md:px-8 py-12 md:py-16">
           <div className="max-w-5xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-4">
-                ¿Qué es la Auditoría Digital IA?
-              </h2>
-              <p className="text-[#9A8E80] text-center max-w-2xl mx-auto mb-12">
-                Un diagnóstico inteligente que analiza tu negocio digital, detecta problemas críticos y te da soluciones concretas. Sin tecnicismos. Sin complicaciones.
-              </p>
-            </FadeInSection>
-
-            <div className="grid md:grid-cols-3 gap-6">
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-10">¿Qué es la Auditoría Digital IA?</h2></FadeIn>
+            <div className="grid md:grid-cols-3 gap-5">
               {[
-                {
-                  icon: <Search className="w-6 h-6" />,
-                  title: 'Detecta problemas',
-                  desc: 'La IA identifica exactamente qué está frenando tus ventas: velocidad, diseño, automatización, presencia digital y más.'
-                },
-                {
-                  icon: <Target className="w-6 h-6" />,
-                  title: 'Soluciones concretas',
-                  desc: 'No solo te dice qué falla. Te da pasos específicos para solucionarlo, con porcentaje de mejora potencial estimado.'
-                },
-                {
-                  icon: <Megaphone className="w-6 h-6" />,
-                  title: 'Incluye publicidad',
-                  desc: 'Te recomienda presupuesto publicitario según tu producto y 2 conjuntos de campaña: alcance y retargeting para vender rápido.'
-                },
+                { icon: <Search className="w-6 h-6" />, title: 'Detecta problemas', desc: 'La IA identifica exactamente qué está frenando tus ventas: velocidad, diseño, automatización, presencia digital y más. Diagnóstico preciso sin tecnicismos.' },
+                { icon: <Target className="w-6 h-6" />, title: 'Soluciones concretas', desc: 'No solo te dice qué falla. Te da pasos específicos para solucionarlo, con porcentaje de mejora potencial estimado. Sin letras pequeñas.' },
+                { icon: <Megaphone className="w-6 h-6" />, title: 'Campañas personalizadas', desc: 'Estrategias de anuncios con presupuesto calculado según tus precios: 20% diario del promedio de tus servicios, dividido en 2 conjuntos de campaña.' },
               ].map((item, i) => (
-                <FadeInSection key={i}>
-                  <Card className="bg-[#1E1B16] border-[#2A2520] hover:border-[#6B7F4E]/50 transition-colors h-full">
-                    <CardHeader>
-                      <div className="w-12 h-12 rounded-xl bg-[#6B7F4E]/10 flex items-center justify-center text-[#8FA36E] mb-3">
-                        {item.icon}
-                      </div>
-                      <CardTitle className="text-[#E2D9CC] text-lg">{item.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-[#9A8E80] text-sm">{item.desc}</p>
-                    </CardContent>
-                  </Card>
-                </FadeInSection>
+                <FadeIn key={i}>
+                  <motion.div whileHover={{ y: -4, boxShadow: `0 8px 30px ${OLIVE}30` }} className="bg-[#1E1B16] rounded-xl p-5 h-full transition-all" style={{ border: `1px solid ${OLIVE}40` }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT }}>{item.icon}</div>
+                      <h3 className="text-[#E2D9CC] font-semibold">{item.title}</h3>
+                    </div>
+                    <p className="text-[#9A8E80] text-sm text-center">{item.desc}</p>
+                  </motion.div>
+                </FadeIn>
               ))}
             </div>
           </div>
         </section>
 
         {/* ─── HOW IT WORKS ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20 bg-[#1E1B16]/50">
-          <div className="max-w-4xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-12">
-                3 pasos. 2 minutos. Resultados inmediatos.
-              </h2>
-            </FadeInSection>
-
-            <div className="space-y-8">
+        <section className="px-4 md:px-8 py-12 md:py-14 bg-[#1E1B16]/50">
+          <div className="max-w-3xl mx-auto">
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-10">3 pasos. 2 minutos. Resultados inmediatos.</h2></FadeIn>
+            <div className="flex flex-col items-center gap-6">
               {[
-                {
-                  step: '01',
-                  icon: <MousePointerClick className="w-5 h-5" />,
-                  title: 'Responde 10 preguntas',
-                  desc: 'Cuéntanos sobre tu negocio, tu facturación actual, tu meta y tu mayor frustración. Sin tecnicismos.'
-                },
-                {
-                  step: '02',
-                  icon: <Bot className="w-5 h-5" />,
-                  title: 'La IA analiza tu negocio',
-                  desc: 'Nuestro motor de inteligencia artificial procesa tus datos y genera un diagnóstico personalizado en segundos.'
-                },
-                {
-                  step: '03',
-                  icon: <BarChart3 className="w-5 h-5" />,
-                  title: 'Recibe tu reporte',
-                  desc: 'Tu score, problemas críticos, soluciones y presupuesto publicitario recomendado. Gratis o completo por $9.99.'
-                },
+                { step: '01', icon: <MousePointerClick className="w-5 h-5" />, title: 'Responde 10 preguntas', desc: 'Cuéntanos sobre tu negocio, facturación, meta y frustración.' },
+                { step: '02', icon: <Bot className="w-5 h-5" />, title: 'La IA analiza tu negocio', desc: 'Procesa tus datos y genera un diagnóstico personalizado en segundos.' },
+                { step: '03', icon: <BarChart3 className="w-5 h-5" />, title: 'Recibe tu reporte', desc: 'Score, problemas, soluciones y campañas personalizadas.' },
               ].map((item, i) => (
-                <FadeInSection key={i}>
-                  <div className="flex items-start gap-6">
-                    <div className="w-14 h-14 rounded-2xl bg-[#6B7F4E]/10 border border-[#6B7F4E]/30 flex items-center justify-center text-[#8FA36E] shrink-0">
-                      {item.icon}
-                    </div>
+                <FadeIn key={i}>
+                  <div className="flex items-start gap-4 w-full max-w-md">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${OLIVE}15`, border: `1px solid ${OLIVE}40`, color: OLIVE_LIGHT }}>{item.icon}</div>
                     <div>
-                      <span className="text-[#6B7F4E] text-sm font-mono mb-1 block">PASO {item.step}</span>
-                      <h3 className="text-[#E2D9CC] text-xl font-semibold mb-2">{item.title}</h3>
-                      <p className="text-[#9A8E80]">{item.desc}</p>
+                      <span className="text-xs font-mono mb-0.5 block" style={{ color: OLIVE }}>PASO {item.step}</span>
+                      <h3 className="text-[#E2D9CC] font-semibold mb-1">{item.title}</h3>
+                      <p className="text-[#9A8E80] text-sm">{item.desc}</p>
                     </div>
                   </div>
-                </FadeInSection>
+                </FadeIn>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ─── FREE vs PAID COMPARISON ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20">
+        {/* ─── FREE vs PAID ─── */}
+        <section className="px-4 md:px-8 py-12 md:py-14">
           <div className="max-w-5xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-4">
-                ¿Gratis o Completa?
-              </h2>
-              <p className="text-[#9A8E80] text-center max-w-xl mx-auto mb-12">
-                Elige la que necesitas. Ambas te dan valor. La completa te da el plan de acción.
-              </p>
-            </FadeInSection>
-
-            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-              <FadeInSection>
-                <Card className="bg-[#1E1B16] border-[#2A2520] hover:border-[#9A8E80]/50 transition-colors h-full">
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-10">¿Gratis o Completa?</h2></FadeIn>
+            <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+              <FadeIn>
+                <Card className="bg-[#1E1B16] h-full" style={{ borderColor: OLIVE }}>
                   <CardHeader>
-                    <Badge className="bg-[#9A8E80]/20 text-[#9A8E80] w-fit mb-2">EXPRESS</Badge>
+                    <Badge className="w-fit mb-2" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT }}>EXPRESS</Badge>
                     <CardTitle className="text-[#E2D9CC] text-2xl">Gratis</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {[
-                      'Score general de tu negocio',
-                      '3 problemas críticos identificados',
-                      'Impacto en porcentaje de cada problema',
-                      'Resultado inmediato',
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-[#9A8E80] mt-0.5 shrink-0" />
-                        <span className="text-[#9A8E80]">{item}</span>
-                      </div>
+                    {['Score general de tu negocio', '3 problemas críticos identificados', 'Impacto en porcentaje de cada problema', 'Resultado inmediato'].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm"><CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#E2D9CC]">{item}</span></div>
                     ))}
-                    <div className="pt-4 border-t border-[#2A2520] mt-4">
-                      <p className="text-[#9A8E80] text-xs">NO incluye: soluciones detalladas, plan de acción, presupuesto publicitario</p>
-                    </div>
+                    <div className="pt-3 border-t border-[#2A2520] mt-3"><p className="text-[#9A8E80] text-xs">NO incluye: soluciones detalladas, plan de acción, campañas personalizadas</p></div>
                   </CardContent>
                 </Card>
-              </FadeInSection>
-
-              <FadeInSection>
-                <Card className="bg-[#1E1B16] border-[#6B7F4E]/50 hover:border-[#6B7F4E] transition-colors h-full relative overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-[#6B7F4E] text-[#0F0D0B] text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    RECOMENDADA
-                  </div>
+              </FadeIn>
+              <FadeIn>
+                <Card className="bg-[#1E1B16] h-full relative overflow-hidden" style={{ borderColor: OLIVE, boxShadow: `0 0 30px ${OLIVE}15` }}>
+                  <div className="absolute top-0 right-0 text-xs font-bold px-3 py-1 rounded-bl-lg" style={{ background: OLIVE, color: '#0F0D0B' }}>RECOMENDADA</div>
                   <CardHeader>
-                    <Badge className="bg-[#6B7F4E]/20 text-[#8FA36E] w-fit mb-2">COMPLETA</Badge>
-                    <CardTitle className="text-[#E2D9CC] text-2xl">$9.99 <span className="text-base text-[#9A8E80] line-through ml-2">$47</span></CardTitle>
+                    <Badge className="w-fit mb-2" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT }}>COMPLETA</Badge>
+                    <CardTitle className="text-[#E2D9CC] text-2xl">$9.99 <span className="text-base text-[#9A8E80] line-through ml-1">$47</span></CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {[
-                      'Todo lo de la Express',
-                      'Score detallado por cada área (5 áreas)',
-                      'Soluciones paso a paso para cada problema',
-                      'Plan de acción de 4 semanas',
-                      'Presupuesto publicitario recomendado',
-                      '2 conjuntos de campaña sugeridos',
-                      'Reporte PDF profesional',
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-[#8FA36E] mt-0.5 shrink-0" />
-                        <span className="text-[#E2D9CC]">{item}</span>
-                      </div>
+                    {['Todo lo de la Express', 'Score detallado por cada área (5 áreas)', 'Soluciones paso a paso para cada problema', 'Plan de acción de 4 semanas (2+ pasos/semana)', 'Presupuesto publicitario según tus servicios', '2 conjuntos de campaña personalizados', 'Reporte PDF profesional'].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm"><CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#E2D9CC]">{item}</span></div>
                     ))}
                   </CardContent>
                 </Card>
-              </FadeInSection>
+              </FadeIn>
             </div>
           </div>
         </section>
 
         {/* ─── WHAT THE REPORT INCLUDES ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20 bg-[#1E1B16]/50">
+        <section className="px-4 md:px-8 py-12 md:py-14 bg-[#1E1B16]/50">
           <div className="max-w-4xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-12">
-                Lo que incluye tu reporte
-              </h2>
-            </FadeInSection>
-
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-10">Lo que incluye tu reporte</h2></FadeIn>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
                 { icon: <BarChart3 className="w-5 h-5" />, title: 'Score General', desc: 'Puntuación del 1 al 100 con desglose por área' },
                 { icon: <AlertTriangle className="w-5 h-5" />, title: '3 Problemas Críticos', desc: 'Con impacto en porcentaje, no en montos' },
-                { icon: <Target className="w-5 h-5" />, title: 'Soluciones Paso a Paso', desc: 'Cada problema con instrucciones claras' },
-                { icon: <Clock className="w-5 h-5" />, title: 'Plan de 4 Semanas', desc: 'Calendario de implementación progresiva' },
-                { icon: <Megaphone className="w-5 h-5" />, title: 'Presupuesto Publicitario', desc: 'Según tu tipo de producto y precio' },
-                { icon: <TrendingUp className="w-5 h-5" />, title: '2 Conjuntos de Campaña', desc: 'Alcance + Retargeting para vender rápido' },
+                { icon: <Target className="w-5 h-5" />, title: 'Soluciones Paso a Paso', desc: 'Cada problema con instrucciones claras y detalladas' },
+                { icon: <Clock className="w-5 h-5" />, title: 'Plan de 4 Semanas', desc: 'Al menos 2 acciones por semana para implementar' },
+                { icon: <Megaphone className="w-5 h-5" />, title: 'Presupuesto Publicitario', desc: 'Sugerencias para conseguir clientes potenciales' },
+                { icon: <Zap className="w-5 h-5" />, title: 'Campañas Personalizadas', desc: 'Estrategias de anuncios, presupuesto adicional según tus servicios' },
               ].map((item, i) => (
-                <FadeInSection key={i}>
-                  <div className="flex items-start gap-3 bg-[#1E1B16] border border-[#2A2520] rounded-xl p-4 hover:border-[#6B7F4E]/30 transition-colors">
-                    <div className="text-[#8FA36E] shrink-0 mt-0.5">{item.icon}</div>
-                    <div>
-                      <h4 className="text-[#E2D9CC] font-semibold text-sm mb-1">{item.title}</h4>
-                      <p className="text-[#9A8E80] text-xs">{item.desc}</p>
-                    </div>
+                <FadeIn key={i}>
+                  <div className="flex items-start gap-3 bg-[#1E1B16] rounded-xl p-4 hover:border-[#5C6B3C]/40 transition-all" style={{ border: `1px solid #2A2520` }}>
+                    <div style={{ color: OLIVE_LIGHT }} className="shrink-0 mt-0.5">{item.icon}</div>
+                    <div><h4 className="text-[#E2D9CC] font-semibold text-sm mb-1">{item.title}</h4><p className="text-[#9A8E80] text-xs">{item.desc}</p></div>
                   </div>
-                </FadeInSection>
+                </FadeIn>
               ))}
             </div>
           </div>
         </section>
 
         {/* ─── AUDIT FORM ─── */}
-        <section id="audit-form" className="px-4 md:px-8 py-16 md:py-20 scroll-mt-20">
+        <section id="audit-form" className="px-4 md:px-8 py-12 md:py-14 scroll-mt-20">
           <div className="max-w-2xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-4">
-                Comienza tu auditoría
-              </h2>
-              <p className="text-[#9A8E80] text-center mb-8">
-                Responde estas preguntas y la IA hará el resto. En minutos tendrás tu diagnóstico.
-              </p>
-            </FadeInSection>
-
-            <FadeInSection>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Audit type toggle */}
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-3">Comienza tu auditoría</h2></FadeIn>
+            <FadeIn><p className="text-[#9A8E80] text-center mb-6 text-sm">Responde estas preguntas y la IA hará el resto.</p></FadeIn>
+            <FadeIn>
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="bg-[#1E1B16] border border-[#2A2520] rounded-xl p-4">
                   <p className="text-sm text-[#9A8E80] mb-3">Tipo de auditoría:</p>
                   <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, auditType: 'free' }))}
-                      className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
-                        formData.auditType === 'free'
-                          ? 'bg-[#9A8E80]/20 text-[#E2D9CC] border border-[#9A8E80]'
-                          : 'bg-[#0F0D0B] text-[#9A8E80] border border-[#2A2520] hover:border-[#9A8E80]/50'
-                      }`}
-                    >
-                      Express — Gratis
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, auditType: 'complete' }))}
-                      className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
-                        formData.auditType === 'complete'
-                          ? 'bg-[#6B7F4E]/20 text-[#8FA36E] border border-[#6B7F4E]'
-                          : 'bg-[#0F0D0B] text-[#9A8E80] border border-[#2A2520] hover:border-[#6B7F4E]/50'
-                      }`}
-                    >
-                      Completa — $9.99
-                    </button>
+                    <button type="button" onClick={() => setFormData(p => ({ ...p, auditType: 'free' }))} className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${formData.auditType === 'free' ? 'text-[#E2D9CC] border' : 'bg-[#0F0D0B] text-[#9A8E80] border border-[#2A2520] hover:border-[#5C6B3C]/50'}`} style={formData.auditType === 'free' ? { background: `${OLIVE}20`, borderColor: OLIVE } : {}}>Express — Gratis</button>
+                    <button type="button" onClick={() => setFormData(p => ({ ...p, auditType: 'complete' }))} className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${formData.auditType === 'complete' ? 'text-[#0F0D0B] border' : 'bg-[#0F0D0B] text-[#9A8E80] border border-[#2A2520] hover:border-[#5C6B3C]/50'}`} style={formData.auditType === 'complete' ? { background: OLIVE, borderColor: OLIVE } : {}}>Completa — $9.99</button>
                   </div>
                 </div>
-
-                {/* Personal info */}
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Nombre *</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="Tu nombre"
-                      value={formData.name}
-                      onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Email *</Label>
-                    <Input
-                      type="email"
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="tu@email.com"
-                      value={formData.email}
-                      onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                  </div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Nombre *</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="Tu nombre" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required /></div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Email *</Label><Input type="email" className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="tu@email.com" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} required /></div>
                 </div>
-
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">WhatsApp</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="+58 422 1234567"
-                      value={formData.whatsapp}
-                      onChange={e => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Sitio web</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="tunegocio.com"
-                      value={formData.website}
-                      onChange={e => setFormData(prev => ({ ...prev, website: e.target.value }))}
-                    />
-                  </div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">WhatsApp</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="+58 422 1234567" value={formData.whatsapp} onChange={e => setFormData(p => ({ ...p, whatsapp: e.target.value }))} /></div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Sitio web</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="tunegocio.com" value={formData.website} onChange={e => setFormData(p => ({ ...p, website: e.target.value }))} /></div>
                 </div>
-
-                {/* Business info */}
+                <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Link de red social</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="instagram.com/tunegocio" value={formData.socialLink} onChange={e => setFormData(p => ({ ...p, socialLink: e.target.value }))} /></div>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Tipo de negocio</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="Ej: Tienda de ropa, consultoría..."
-                      value={formData.businessType}
-                      onChange={e => setFormData(prev => ({ ...prev, businessType: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Seguidores en redes</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="Ej: 3,000"
-                      value={formData.followers}
-                      onChange={e => setFormData(prev => ({ ...prev, followers: e.target.value }))}
-                    />
-                  </div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Tipo de negocio</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="Tienda de ropa, consultoría..." value={formData.businessType} onChange={e => setFormData(p => ({ ...p, businessType: e.target.value }))} /></div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Seguidores en redes</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="3,000" value={formData.followers} onChange={e => setFormData(p => ({ ...p, followers: e.target.value }))} /></div>
                 </div>
-
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Facturación mensual actual</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="Ej: $300 USD"
-                      value={formData.monthlyRevenue}
-                      onChange={e => setFormData(prev => ({ ...prev, monthlyRevenue: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[#E2D9CC] text-sm">Meta de facturación</Label>
-                    <Input
-                      className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E]"
-                      placeholder="Ej: $2,000 USD"
-                      value={formData.revenueGoal}
-                      onChange={e => setFormData(prev => ({ ...prev, revenueGoal: e.target.value }))}
-                    />
-                  </div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Facturación mensual</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="$300 USD" value={formData.monthlyRevenue} onChange={e => setFormData(p => ({ ...p, monthlyRevenue: e.target.value }))} /></div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Meta de facturación</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="$2,000 USD" value={formData.revenueGoal} onChange={e => setFormData(p => ({ ...p, revenueGoal: e.target.value }))} /></div>
                 </div>
-
-                {/* Automation */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Tu servicio más barato (USD)</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="Ej: 30" value={formData.serviceMinPrice} onChange={e => setFormData(p => ({ ...p, serviceMinPrice: e.target.value }))} /></div>
+                  <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Tu servicio más caro (USD)</Label><Input className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C]" placeholder="Ej: 200" value={formData.serviceMaxPrice} onChange={e => setFormData(p => ({ ...p, serviceMaxPrice: e.target.value }))} /></div>
+                </div>
                 <div className="bg-[#1E1B16] border border-[#2A2520] rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <Label className="text-[#E2D9CC] text-sm">¿Usas automatización o bots?</Label>
-                    <p className="text-[#9A8E80] text-xs mt-1">WhatsApp Bot, email automático, etc.</p>
-                  </div>
-                  <Switch
-                    checked={formData.usesAutomation}
-                    onCheckedChange={val => setFormData(prev => ({ ...prev, usesAutomation: val }))}
-                  />
+                  <div><Label className="text-[#E2D9CC] text-sm">¿Usas automatización o bots?</Label><p className="text-[#9A8E80] text-xs mt-0.5">WhatsApp Bot, email automático...</p></div>
+                  <Switch checked={formData.usesAutomation} onCheckedChange={v => setFormData(p => ({ ...p, usesAutomation: v }))} />
                 </div>
-
-                {/* Frustration */}
-                <div className="space-y-2">
-                  <Label className="text-[#E2D9CC] text-sm">Tu mayor frustración con tu negocio digital</Label>
-                  <Textarea
-                    className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#6B7F4E] focus:ring-[#6B7F4E] min-h-[80px]"
-                    placeholder="Ej: Tengo visitas pero nadie compra, no sé cómo automatizar, no tengo tiempo..."
-                    value={formData.frustration}
-                    onChange={e => setFormData(prev => ({ ...prev, frustration: e.target.value }))}
-                  />
-                </div>
-
-                {/* Referral code display */}
-                {referralCode && (
-                  <div className="bg-[#6B7F4E]/10 border border-[#6B7F4E]/30 rounded-xl p-3 flex items-center gap-2">
-                    <Gift className="w-4 h-4 text-[#8FA36E]" />
-                    <span className="text-sm text-[#8FA36E]">Referido por: <strong>{referrerName || referralCode}</strong></span>
-                  </div>
-                )}
-
-                {/* Submit */}
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className={`w-full font-semibold text-lg h-14 ${
-                    formData.auditType === 'complete'
-                      ? 'bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B]'
-                      : 'bg-[#9A8E80]/20 hover:bg-[#9A8E80]/30 text-[#E2D9CC] border border-[#9A8E80]'
-                  }`}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Analizando tu negocio...
-                    </>
-                  ) : formData.auditType === 'free' ? (
-                    <>
-                      <Zap className="w-5 h-5 mr-2" />
-                      Obtener Auditoría Gratis
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Obtener Auditoría Completa — $9.99
-                    </>
-                  )}
+                <div className="space-y-1"><Label className="text-[#E2D9CC] text-sm">Tu mayor frustración</Label><Textarea className="bg-[#1E1B16] border-[#2A2520] text-[#E2D9CC] focus:border-[#5C6B3C] min-h-[70px]" placeholder="Tengo visitas pero nadie compra..." value={formData.frustration} onChange={e => setFormData(p => ({ ...p, frustration: e.target.value }))} /></div>
+                {referralCode && <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: `${OLIVE}10`, border: `1px solid ${OLIVE}40` }}><Gift className="w-4 h-4" style={{ color: OLIVE_LIGHT }} /><span className="text-sm" style={{ color: OLIVE_LIGHT }}>Referido por: <strong>{referrerName || referralCode}</strong></span></div>}
+                <Button type="submit" disabled={loading} className="w-full font-semibold text-lg h-14 text-[#0F0D0B]" style={{ background: OLIVE }}>
+                  {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Analizando...</> : formData.auditType === 'free' ? <><Zap className="w-5 h-5 mr-2" />Obtener Auditoría Gratis</> : <><MessageCircle className="w-5 h-5 mr-2" />Continuar por WhatsApp — $9.99</>}
                 </Button>
-
-                <p className="text-center text-[#9A8E80] text-xs">
-                  Al enviar, aceptas recibir comunicaciones de LLAVE DIGITAL 3.0. No spam. Puedes cancelar cuando quieras.
-                </p>
+                <p className="text-center text-[#9A8E80] text-xs">Al enviar, aceptas recibir comunicaciones. No spam. Cancela cuando quieras.</p>
               </form>
-            </FadeInSection>
+            </FadeIn>
           </div>
         </section>
 
         {/* ─── PACKAGES ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20 bg-[#1E1B16]/50">
+        <section className="px-4 md:px-8 py-12 md:py-14 bg-[#1E1B16]/50">
           <div className="max-w-5xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-4">
-                ¿Quieres que lo implementemos por ti?
-              </h2>
-              <p className="text-[#9A8E80] text-center max-w-xl mx-auto mb-4">
-                La auditoría te dice QUÉ hacer. Nuestros paquetes lo HACEN por ti.
-              </p>
-              <div className="text-center mb-12">
-                <Badge className="bg-[#6B7F4E]/20 text-[#8FA36E] border-[#6B7F4E]/30">
-                  <Percent className="w-3 h-3 mr-1" /> Si compras HOY, tu auditoría es GRATIS + $9.99 de descuento
-                </Badge>
-              </div>
-            </FadeInSection>
-
-            <div className="grid md:grid-cols-3 gap-6">
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-3">¿Quieres que lo implementemos?</h2></FadeIn>
+            <FadeIn><div className="text-center mb-10"><Badge style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT, borderColor: `${OLIVE}40` }} className="border"><Percent className="w-3 h-3 mr-1" />Si compras HOY, tu auditoría es GRATIS + $9.99 de descuento</Badge></div></FadeIn>
+            <div className="grid md:grid-cols-3 gap-5">
               {[
-                {
-                  name: 'Impulso',
-                  price: '$197',
-                  color: '#9A8E80',
-                  features: [
-                    'Página de Ventas Premium',
-                    'Bot WhatsApp Básico (50 consultas/día)',
-                    'Contenido IA: 10 piezas gráficas',
-                    'Setup de redes sociales',
-                    '30 días de soporte',
-                  ],
-                  popular: false,
-                },
-                {
-                  name: 'Crecimiento',
-                  price: '$497',
-                  color: '#8FA36E',
-                  features: [
-                    'Marketplace completo (100 productos)',
-                    'Bot WhatsApp Pro + CRM',
-                    'Contenido IA: 30 piezas + 3 videos',
-                    '1 mes gestión de redes',
-                    'Integración omnicanal',
-                    '2 sesiones estratégicas',
-                    '60 días de soporte',
-                  ],
-                  popular: true,
-                },
-                {
-                  name: 'Dominio',
-                  price: '$997',
-                  color: '#6B7F4E',
-                  features: [
-                    'Todo lo de Crecimiento',
-                    'Agente IA personalizado',
-                    'MiniApp especializada',
-                    'Blueprint campañas virales',
-                    'Mentoría grupal 14 semanas',
-                    'Social Commerce',
-                    'Automatización No-Code',
-                    '90 días + 3 meses mantenimiento',
-                  ],
-                  popular: false,
-                },
+                { name: 'Impulso', price: '$197', features: ['Página de Ventas Premium', 'Bot WhatsApp Básico', 'Contenido IA: 10 piezas', 'Setup redes sociales', '30 días soporte'] },
+                { name: 'Crecimiento', price: '$497', features: ['Marketplace (100 productos)', 'Bot WhatsApp Pro + CRM', 'Contenido IA: 30 piezas + 3 videos', '1 mes gestión redes', 'Integración omnicanal', '2 sesiones estratégicas', '60 días soporte'], popular: true },
+                { name: 'Dominio', price: '$997', features: ['Todo lo de Crecimiento', 'Agente IA personalizado', 'MiniApp especializada', 'Blueprint campañas virales', 'Mentoría 14 semanas', 'Social Commerce', 'Automatización No-Code', '90 días + 3 meses mantenimiento'] },
               ].map((pkg, i) => (
-                <FadeInSection key={i}>
-                  <Card className={`bg-[#1E1B16] border-[#2A2520] h-full relative overflow-hidden ${
-                    pkg.popular ? 'border-[#6B7F4E] ring-1 ring-[#6B7F4E]/30' : ''
-                  }`}>
-                    {pkg.popular && (
-                      <div className="absolute top-0 right-0 bg-[#6B7F4E] text-[#0F0D0B] text-xs font-bold px-3 py-1 rounded-bl-lg">
-                        MÁS POPULAR
-                      </div>
-                    )}
-                    <CardHeader className="pb-2">
-                      <h3 className="text-lg" style={{ color: pkg.color }}>{pkg.name}</h3>
-                      <CardTitle className="text-[#E2D9CC] text-3xl">{pkg.price}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {pkg.features.map((f, j) => (
-                        <div key={j} className="flex items-start gap-2 text-sm">
-                          <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: pkg.color }} />
-                          <span className="text-[#9A8E80]">{f}</span>
-                        </div>
-                      ))}
-                      <div className="pt-4">
-                        <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
-                          <Button
-                            className={`w-full font-semibold ${
-                              pkg.popular
-                                ? 'bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B]'
-                                : 'border border-[#2A2520] text-[#E2D9CC] hover:bg-[#2A2520]'
-                            }`}
-                            variant={pkg.popular ? 'default' : 'outline'}
-                          >
-                            <MessageCircle className="w-4 h-4 mr-2" /> Agendar llamada
-                          </Button>
-                        </a>
-                      </div>
+                <FadeIn key={i}>
+                  <Card className={`bg-[#1E1B16] h-full relative overflow-hidden ${pkg.popular ? '' : ''}`} style={{ borderColor: pkg.popular ? OLIVE : '#2A2520', boxShadow: pkg.popular ? `0 0 30px ${OLIVE}15` : 'none' }}>
+                    {pkg.popular && <div className="absolute top-0 right-0 text-xs font-bold px-3 py-1 rounded-bl-lg" style={{ background: OLIVE, color: '#0F0D0B' }}>MÁS POPULAR</div>}
+                    <CardHeader className="pb-2"><h3 className="text-lg" style={{ color: OLIVE_LIGHT }}>{pkg.name}</h3><CardTitle className="text-[#E2D9CC] text-3xl">{pkg.price}</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                      {pkg.features.map((f, j) => <div key={j} className="flex items-start gap-2 text-sm"><CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#9A8E80]">{f}</span></div>)}
+                      <div className="pt-3"><a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer"><Button className={`w-full font-semibold ${pkg.popular ? 'text-[#0F0D0B]' : ''}`} style={{ background: pkg.popular ? OLIVE : 'transparent', borderColor: pkg.popular ? OLIVE : '#2A2520', color: pkg.popular ? '#0F0D0B' : '#E2D9CC' }} variant={pkg.popular ? 'default' : 'outline'}><MessageCircle className="w-4 h-4 mr-2" />Agendar llamada</Button></a></div>
                     </CardContent>
                   </Card>
-                </FadeInSection>
+                </FadeIn>
               ))}
             </div>
           </div>
         </section>
 
         {/* ─── REFERRAL PROGRAM ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20">
-          <div className="max-w-3xl mx-auto text-center">
-            <FadeInSection>
-              <div className="w-16 h-16 rounded-2xl bg-[#6B7F4E]/10 flex items-center justify-center text-[#8FA36E] mx-auto mb-6">
-                <Gift className="w-8 h-8" />
+        <section className="px-4 md:px-8 py-12 md:py-14">
+          <div className="max-w-3xl mx-auto">
+            <FadeIn>
+              <div className="text-center mb-8">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${OLIVE}15` }}><Gift className="w-7 h-7" style={{ color: OLIVE_LIGHT }} /></div>
+                <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] mb-3">Programa de Referidos</h2>
+                <p className="text-[#9A8E80] max-w-xl mx-auto text-sm">Comparte tu enlace único y gana <strong className="text-[#E2D9CC]">10% de comisión</strong> por cada paquete que compre tu referido.</p>
               </div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] mb-4">
-                Programa de Referidos
-              </h2>
-              <p className="text-[#9A8E80] max-w-xl mx-auto mb-8">
-                ¿Conoces a alguien que necesita esta auditoría? Comparte tu enlace único y gana comisiones por cada paquete que compre tu referido.
-              </p>
-            </FadeInSection>
-
-            <FadeInSection>
-              <div className="grid sm:grid-cols-3 gap-4 mb-8">
+            </FadeIn>
+            <FadeIn>
+              <div className="grid grid-cols-3 gap-3 mb-8">
                 {[
-                  { label: 'Auditoría completa', commission: '30%', amount: '$3' },
-                  { label: 'Plan Impulso', commission: '25%', amount: '$49' },
-                  { label: 'Plan Crecimiento', commission: '20%', amount: '$99' },
+                  { label: 'Impulso $197', commission: '$19.70' },
+                  { label: 'Crecimiento $497', commission: '$49.70' },
+                  { label: 'Dominio $997', commission: '$99.70' },
                 ].map((item, i) => (
-                  <div key={i} className="bg-[#1E1B16] border border-[#2A2520] rounded-xl p-4">
+                  <div key={i} className="bg-[#1E1B16] border border-[#2A2520] rounded-xl p-3 text-center">
                     <p className="text-[#9A8E80] text-xs mb-1">{item.label}</p>
-                    <p className="text-2xl font-bold text-[#8FA36E]">{item.commission}</p>
-                    <p className="text-[#9A8E80] text-xs mt-1">= {item.amount} por referido</p>
+                    <p className="text-xl font-bold" style={{ color: OLIVE_LIGHT }}>{item.commission}</p>
+                    <p className="text-[#9A8E80] text-xs mt-0.5">10% por referido</p>
                   </div>
                 ))}
               </div>
-            </FadeInSection>
-
-            <FadeInSection>
-              <Card className="bg-[#1E1B16] border-[#2A2520] text-left">
-                <CardContent className="p-6">
-                  <h4 className="text-[#E2D9CC] font-semibold mb-3">¿Cómo funciona?</h4>
-                  <ol className="space-y-2 text-sm text-[#9A8E80]">
-                    <li className="flex items-start gap-2">
-                      <span className="bg-[#6B7F4E] text-[#0F0D0B] w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                      Regístrate y recibe tu enlace único de referido
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="bg-[#6B7F4E] text-[#0F0D0B] w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                      Comparte tu enlace con emprendedores que conozcas
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="bg-[#6B7F4E] text-[#0F0D0B] w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                      Cuando tu referido compre un paquete, tú ganas la comisión automáticamente
-                    </li>
-                  </ol>
+            </FadeIn>
+            {/* Referral signup form */}
+            <FadeIn>
+              <Card className="bg-[#1E1B16] border-[#2A2520]">
+                <CardContent className="p-5">
+                  {!refResult ? (
+                    <form onSubmit={handleRefSignup} className="space-y-3">
+                      <h4 className="text-[#E2D9CC] font-semibold mb-2">Genera tu enlace de referido</h4>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Input className="bg-[#0F0D0B] border-[#2A2520] text-[#E2D9CC]" placeholder="Tu nombre" value={refSignup.name} onChange={e => setRefSignup(p => ({ ...p, name: e.target.value }))} required />
+                        <Input type="email" className="bg-[#0F0D0B] border-[#2A2520] text-[#E2D9CC]" placeholder="Tu email" value={refSignup.email} onChange={e => setRefSignup(p => ({ ...p, email: e.target.value }))} required />
+                      </div>
+                      <Input className="bg-[#0F0D0B] border-[#2A2520] text-[#E2D9CC]" placeholder="Tu WhatsApp (opcional)" value={refSignup.phone} onChange={e => setRefSignup(p => ({ ...p, phone: e.target.value }))} />
+                      <Button type="submit" disabled={refLoading} className="w-full font-semibold text-[#0F0D0B]" style={{ background: OLIVE }}>
+                        {refLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                        {refLoading ? 'Generando...' : 'Generar mi enlace de referido'}
+                      </Button>
+                    </form>
+                  ) : (
+                    <div className="text-center space-y-3">
+                      <CheckCircle className="w-10 h-10 mx-auto" style={{ color: OLIVE_LIGHT }} />
+                      <h4 className="text-[#E2D9CC] font-semibold">¡Tu enlace está listo!</h4>
+                      <div className="flex items-center gap-2 bg-[#0F0D0B] rounded-lg p-3 border border-[#2A2520]">
+                        <code className="text-xs flex-1 break-all" style={{ color: OLIVE_LIGHT }}>{refResult.link}</code>
+                        <button onClick={copyLink} className="shrink-0 p-1.5 rounded hover:bg-[#2A2520] transition-colors">
+                          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
+                        </button>
+                      </div>
+                      <p className="text-[#9A8E80] text-xs">Comparte este enlace y gana 10% por cada paquete vendido</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            </FadeInSection>
+            </FadeIn>
           </div>
         </section>
 
-        {/* ─── TESTIMONIALS ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20 bg-[#1E1B16]/50">
+        {/* ─── TESTIMONIALS (compact, circular, horizontal) ─── */}
+        <section className="px-4 md:px-8 py-12 md:py-14 bg-[#1E1B16]/50">
           <div className="max-w-5xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-12">
-                Lo que dicen nuestros clientes
-              </h2>
-            </FadeInSection>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {[
-                { name: 'Carolina M.', country: '🇻🇪 Venezuela', text: 'Daniela transformó mi tienda. En 2 semanas vendía más online que en la física.', service: 'Marketplace + Bot' },
-                { name: 'James R.', country: '🇺🇸 USA', text: 'Su chatbot aumentó mi conversión 340% en el primer mes. Game-changing.', service: 'AI Chatbot' },
-                { name: 'Emily C.', country: '🇺🇸 USA', text: '12K shares en 48 horas con su blueprint viral. Ella sabe lo que hace.', service: 'Campañas Virales' },
-                { name: 'Gabriela T.', country: '🇲🇽 México', text: 'Encontró 3 problemas que me costaban $2,000/mes en ventas perdidas.', service: 'Auditoría' },
-              ].map((t, i) => (
-                <FadeInSection key={i}>
-                  <Card className="bg-[#1E1B16] border-[#2A2520] h-full">
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-1 mb-3">
-                        {[1,2,3,4,5].map(s => (
-                          <Star key={s} className="w-4 h-4 fill-[#8FA36E] text-[#8FA36E]" />
-                        ))}
-                      </div>
-                      <p className="text-[#E2D9CC] mb-4 text-sm italic">&ldquo;{t.text}&rdquo;</p>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[#E2D9CC] font-semibold text-sm">{t.name}</p>
-                          <p className="text-[#9A8E80] text-xs">{t.country}</p>
-                        </div>
-                        <Badge className="bg-[#6B7F4E]/10 text-[#8FA36E] text-xs">{t.service}</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </FadeInSection>
-              ))}
-            </div>
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-8">Lo que dicen nuestros clientes</h2></FadeIn>
+            <FadeIn>
+              <div className="flex gap-4 overflow-x-auto pb-3 snap-x">
+                {[
+                  { name: 'Carolina M.', country: '🇻🇪', text: 'En 2 semanas vendía más online que en la física.', service: 'Marketplace' },
+                  { name: 'James R.', country: '🇺🇸', text: 'Chatbot increased my conversion 340% in month one. Game-changing.', service: 'AI Chatbot' },
+                  { name: 'María F.', country: '🇨🇴', text: 'La asesoría fue la mejor inversión. 31 días vendiendo automático.', service: 'Asesoría' },
+                  { name: 'Emily C.', country: '🇺🇸', text: '12K shares in 48 hours with her viral blueprint. She knows her stuff.', service: 'Campañas' },
+                  { name: 'Ana K.', country: '🇻🇪', text: 'Contenido IA hollywoodense. TikTok de 200 a 15K vistas.', service: 'Contenido IA' },
+                  { name: 'Gabriela T.', country: '🇲🇽', text: 'Encontró 3 problemas que me costaban ventas perdidas.', service: 'Auditoría' },
+                ].map((t, i) => (
+                  <div key={i} className="shrink-0 w-56 bg-[#1E1B16] border border-[#2A2520] rounded-2xl p-4 text-center snap-start" style={{ boxShadow: `0 4px 20px ${OLIVE}10` }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-sm font-bold" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT }}>{t.name.charAt(0)}{t.name.split(' ')[1]?.charAt(0)}</div>
+                    <p className="text-[#E2D9CC] text-xs italic mb-2 line-clamp-3">&ldquo;{t.text}&rdquo;</p>
+                    <p className="text-[#9A8E80] text-[10px] font-semibold">{t.name} {t.country}</p>
+                    <Badge className="mt-1 text-[9px]" style={{ background: `${OLIVE}15`, color: OLIVE_LIGHT }}>{t.service}</Badge>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
           </div>
         </section>
 
         {/* ─── FAQ ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-20">
+        <section className="px-4 md:px-8 py-12 md:py-14">
           <div className="max-w-2xl mx-auto">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] text-center mb-12">
-                Preguntas frecuentes
-              </h2>
-            </FadeInSection>
-
-            <FadeInSection>
-              <Accordion type="single" collapsible className="space-y-3">
+            <FadeIn><h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-8">Preguntas frecuentes</h2></FadeIn>
+            <FadeIn>
+              <Accordion type="single" collapsible className="space-y-2">
                 {[
-                  {
-                    q: '¿La auditoría gratis de verdad es gratis?',
-                    a: 'Sí, 100% gratis. Recibirás tus 3 problemas críticos y tu score general. Sin letra pequeña, sin sorpresas. Si quieres las soluciones detalladas y el plan de acción, esa es la versión completa por $9.99.'
-                  },
-                  {
-                    q: '¿Cómo genera el reporte la IA?',
-                    a: 'Nuestro motor de inteligencia artificial analiza los datos que proporcionas sobre tu negocio: tipo de negocio, facturación, presencia digital, automatización y frustraciones. Con esa información genera un diagnóstico personalizado con scores, problemas detectados y soluciones.'
-                  },
-                  {
-                    q: '¿Los porcentajes de mejora son garantías?',
-                    a: 'No. Los porcentajes son estimaciones de potencial basadas en promedios del mercado. Los resultados reales dependen de la implementación de las soluciones y de la inversión publicitaria. Nuestro descargo siempre es claro: esto es un diagnóstico, no una garantía.'
-                  },
-                  {
-                    q: '¿Por qué incluye publicidad si yo solo quiero saber si mi web está bien?',
-                    a: 'Porque la mejor tienda del mundo no vende si nadie la ve. La publicidad es parte integral del éxito digital. Sin tráfico no hay ventas. Te recomendamos presupuesto según tu tipo de producto para que tengas el panorama completo.'
-                  },
-                  {
-                    q: '¿Qué pasa si compro la auditoría completa y luego quiero un paquete?',
-                    a: '¡Excelente decisión! Si adquieres cualquier paquete (Impulso $197, Crecimiento $497 o Dominio $997) dentro de las 4 horas posteriores a tu auditoría, el costo de la auditoría ($9.99) se descuenta del paquete. Es como si la auditoría te saliera gratis.'
-                  },
-                  {
-                    q: '¿Mis datos están seguros?',
-                    a: 'Sí. Tus datos se usan exclusivamente para generar tu auditoría y, si lo autorizas, enviarte información relevante. No compartimos tus datos con terceros. Puedes solicitar la eliminación de tus datos en cualquier momento por WhatsApp.'
-                  },
-                  {
-                    q: '¿Cómo funciona el programa de referidos?',
-                    a: 'Regístrate, recibe tu enlace único y compártelo. Cuando alguien compre un paquete a través de tu enlace, ganas una comisión del 15-30% según el paquete. Es una sola nivel: tú ganas por las personas que tú refieres directamente. Sin límites de referidos.'
-                  },
+                  { q: '¿La auditoría gratis de verdad es gratis?', a: 'Sí, 100%. Recibirás tus 3 problemas críticos y tu score general. Si quieres las soluciones detalladas y el plan de acción, esa es la versión completa por $9.99.' },
+                  { q: '¿Los porcentajes de mejora son garantías?', a: 'No. Son estimaciones de potencial basadas en promedios del mercado. Los resultados dependen de la implementación y la inversión publicitaria.' },
+                  { q: '¿Por qué incluye publicidad?', a: 'Porque la mejor tienda del mundo no vende si nadie la ve. Sin tráfico no hay ventas. Te recomendamos presupuesto según tus precios.' },
+                  { q: '¿Cómo se calcula el presupuesto publicitario?', a: 'Se calcula el promedio de tus servicios (el más caro + el más barato / 2) y el 20% de ese promedio es tu inversión diaria, dividida en 2 conjuntos de campaña con 4-5 anuncios cada uno.' },
+                  { q: '¿Qué pasa si quiero un paquete después de la auditoría?', a: 'Si compras dentro de las 4 horas, la auditoría es GRATIS y los $9.99 se descuentan del paquete.' },
+                  { q: '¿Cómo funciona el programa de referidos?', a: 'Generas tu enlace, lo compartes, y ganas 10% de comisión por cada paquete que compre tu referido. Un solo nivel: ganas por quienes tú refieres directamente.' },
+                  { q: '¿Mis datos están seguros?', a: 'Sí. Se usan solo para tu auditoría. No compartimos con terceros. Puedes solicitar eliminación cuando quieras.' },
                 ].map((item, i) => (
                   <AccordionItem key={i} value={`faq-${i}`} className="bg-[#1E1B16] border border-[#2A2520] rounded-xl px-4">
-                    <AccordionTrigger className="text-[#E2D9CC] text-sm text-left hover:text-[#8FA36E]">
-                      {item.q}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-[#9A8E80] text-sm">
-                      {item.a}
-                    </AccordionContent>
+                    <AccordionTrigger className="text-[#E2D9CC] text-sm text-left hover:text-[#7A8C52]">{item.q}</AccordionTrigger>
+                    <AccordionContent className="text-[#9A8E80] text-sm">{item.a}</AccordionContent>
                   </AccordionItem>
                 ))}
               </Accordion>
-            </FadeInSection>
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* ─── WHITE LABEL AUDIT SECTION ─── */}
+        <section className="px-4 md:px-8 py-12 md:py-14 bg-[#1E1B16]/50">
+          <div className="max-w-4xl mx-auto">
+            <FadeIn>
+              <div className="rounded-2xl p-6 md:p-8 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}15, ${OLIVE_LIGHT}08)`, border: `1px solid ${OLIVE}40` }}>
+                <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}15` }} />
+                <div className="relative z-10">
+                  <Badge className="mb-4" style={{ background: OLIVE, color: '#0F0D0B' }}>NUEVO</Badge>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] mb-3">
+                    ¿Quieres implementar esta auditoría en tu negocio?
+                  </h2>
+                  <p className="text-[#9A8E80] mb-6 text-sm md:text-base">
+                    La ajustamos a tu nicho: <strong className="text-[#E2D9CC]">Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación</strong> y más.
+                    Vende este formato de auditoría como tu propio servicio.
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                    {[
+                      { icon: <Palette className="w-4 h-4" />, text: 'Landing adaptada a tu nicho y marca' },
+                      { icon: <Store className="w-4 h-4" />, text: 'Tus servicios y precios integrados' },
+                      { icon: <BarChart3 className="w-4 h-4" />, text: 'Recolección de datos de clientes' },
+                      { icon: <Bot className="w-4 h-4" />, text: 'Reportes generados por IA' },
+                      { icon: <CircleDollarSign className="w-4 h-4" />, text: 'Sistema de pagos conectado' },
+                      { icon: <Globe className="w-4 h-4" />, text: 'Todos los beneficios de este servicio' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm"><span style={{ color: OLIVE_LIGHT }}>{item.icon}</span><span className="text-[#E2D9CC]">{item.text}</span></div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div>
+                      <p className="text-3xl font-bold text-[#E2D9CC]">$69.99</p>
+                      <p className="text-[#9A8E80] text-xs">Pago único — Landing + sistema completo</p>
+                    </div>
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditoría%20adaptada%20a%20mi%20nicho%20por%20%2469.99" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-[#0F0D0B]" style={{ background: OLIVE }}><MessageCircle className="w-4 h-4 mr-2" />Quiero la auditoría para mi nicho</Button>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
           </div>
         </section>
 
         {/* ─── FINAL CTA ─── */}
-        <section className="px-4 md:px-8 py-16 md:py-24 bg-gradient-to-b from-[#1E1B16]/50 to-[#0F0D0B]">
+        <section className="px-4 md:px-8 py-14 md:py-20">
           <div className="max-w-3xl mx-auto text-center">
-            <FadeInSection>
-              <h2 className="font-[family-name:var(--font-playfair)] text-3xl md:text-4xl text-[#E2D9CC] mb-4">
-                Tu negocio digital puede vender más. Descubre cómo.
-              </h2>
-              <p className="text-[#9A8E80] mb-8">
-                2 minutos. 10 preguntas. Un diagnóstico que puede cambiar la dirección de tu negocio.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button
-                  size="lg"
-                  className="bg-[#6B7F4E] hover:bg-[#8FA36E] text-[#0F0D0B] font-semibold text-lg px-8 h-14 animate-pulse-glow"
-                  onClick={() => document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  Comenzar Auditoría Gratis <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
-                  <Button size="lg" variant="outline" className="border-[#6B7F4E] text-[#8FA36E] hover:bg-[#6B7F4E]/10 text-lg px-8 h-14">
-                    <MessageCircle className="w-5 h-5 mr-2" /> Hablar por WhatsApp
-                  </Button>
-                </a>
+            <FadeIn>
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl md:text-3xl text-[#E2D9CC] mb-3 uppercase leading-tight">Tu negocio digital puede vender más. Descubre cómo.</h2>
+              <p className="text-[#9A8E80] mb-6 text-sm">2 minutos. 10 preguntas. Un diagnóstico que cambia la dirección de tu negocio.</p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button size="lg" className="text-[#0F0D0B] font-semibold text-lg px-8 h-14" style={{ background: OLIVE }} onClick={() => document.getElementById('audit-form')?.scrollIntoView({ behavior: 'smooth' })}>Comenzar Auditoría Gratis <ArrowRight className="w-5 h-5 ml-2" /></Button>
+                <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer"><Button size="lg" variant="outline" className="text-lg px-8 h-14" style={{ borderColor: OLIVE, color: OLIVE_LIGHT }}><MessageCircle className="w-5 h-5 mr-2" />WhatsApp</Button></a>
               </div>
-            </FadeInSection>
+            </FadeIn>
           </div>
         </section>
       </main>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-[#2A2520] px-4 md:px-8 py-8 mt-auto">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-[#2A2520] px-4 md:px-8 py-6 mt-auto">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-[#6B7F4E] flex items-center justify-center">
-              <Zap className="w-3 h-3 text-[#0F0D0B]" />
-            </div>
-            <span className="font-[family-name:var(--font-playfair)] text-sm text-[#9A8E80] italic">LLAVE DIGITAL 3.0</span>
+            <div className="w-5 h-5 rounded flex items-center justify-center" style={{ background: OLIVE }}><Zap className="w-3 h-3 text-[#0F0D0B]" /></div>
+            <span className="font-[family-name:var(--font-playfair)] text-sm text-[#9A8E80] italic">Daniela Silva</span>
+            <span className="text-[#9A8E80] text-xs">Estratega Digital</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-[#9A8E80]">
-            <a href="https://instagram.com/danidigital3.0" target="_blank" rel="noopener noreferrer" className="hover:text-[#8FA36E] transition-colors">Instagram</a>
-            <a href="https://tiktok.com/@elvlog.dedani" target="_blank" rel="noopener noreferrer" className="hover:text-[#8FA36E] transition-colors">TikTok</a>
-            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer" className="hover:text-[#8FA36E] transition-colors">WhatsApp</a>
+          <div className="flex items-center gap-5">
+            <a href="https://instagram.com/danidigital3.0" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform"><Instagram className="w-5 h-5" style={{ color: '#E1306C' }} /></a>
+            <a href="https://tiktok.com/@elvlog.dedani" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform"><Film className="w-5 h-5" style={{ color: '#00f2ea' }} /></a>
+            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform"><MessageCircle className="w-5 h-5" style={{ color: '#25D366' }} /></a>
           </div>
-          <p className="text-[#9A8E80] text-xs">
-            &copy; 2026 LLAVE DIGITAL 3.0. Todos los derechos reservados.
-          </p>
+          <p className="text-[#9A8E80] text-xs">&copy; 2026 Daniela Silva. Todos los derechos reservados.</p>
         </div>
       </footer>
 
       {/* ─── RESULT MODAL ─── */}
-      <AnimatePresence>
-        {result && (
-          <AuditResultModal
-            result={result}
-            onClose={() => setResult(null)}
-          />
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{result && <AuditResultModal result={result} onClose={() => setResult(null)} />}</AnimatePresence>
     </div>
   );
 }
