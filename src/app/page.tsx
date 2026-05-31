@@ -692,9 +692,9 @@ export default function Home() {
             <FadeIn><div className="text-center mb-12"><Badge className="rounded-full border px-4 py-1.5" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT, borderColor: `${OLIVE}40` }}><Percent className="w-3 h-3 mr-1" />Si compras HOY, tu auditoría es GRATIS + $9.99 de descuento</Badge></div></FadeIn>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { name: 'Impulso', price: '$197', icon: <Rocket className="w-5 h-5" />, features: ['Página de Ventas Premium', 'Bot WhatsApp Básico', 'Contenido IA: 10 piezas', 'Setup redes sociales', '30 días soporte'] },
-                { name: 'Crecimiento', price: '$497', icon: <TrendingUp className="w-5 h-5" />, features: ['Marketplace (100 productos)', 'Bot WhatsApp Pro + CRM', 'Contenido IA: 30 piezas + 3 videos', '1 mes gestión redes', 'Integración omnicanal', '2 sesiones estratégicas', '60 días soporte'], popular: true },
-                { name: 'Dominio', price: '$997', icon: <Crown className="w-5 h-5" />, features: ['Todo lo de Crecimiento', 'Agente IA personalizado', 'MiniApp especializada', 'Blueprint campañas virales', 'Mentoría 14 semanas', 'Social Commerce', 'Automatización No-Code', '90 días + 3 meses mantenimiento'] },
+                { name: 'Impulso', price: '$197', icon: <Rocket className="w-5 h-5" />, features: ['Página de Ventas Premium Personalizada', 'Optimización de RRSS', 'Integración de pixel y métricas básicas'] },
+                { name: 'Crecimiento', price: '$497', icon: <TrendingUp className="w-5 h-5" />, features: ['Contenido IA para cada producto', 'Asesoría estratégica (1 sesión en vivo semanal)', 'Integraciones métricas y de seguimiento', 'Email Remarketing y seguimiento', 'Mantenimiento 1 mes'], popular: true },
+                { name: 'Dominio', price: '$887', originalPrice: '$1190', icon: <Crown className="w-5 h-5" />, features: ['Todo lo de Crecimiento', 'Agente IA personalizado', 'MiniApp especializada', 'Blueprint campañas virales', 'Mentoría 14 semanas', 'Social Commerce', 'Automatización No-Code', '90 días + 3 meses mantenimiento'] },
               ].map((pkg, i) => (
                 <FadeIn key={i} delay={i * 0.15}>
                   <Card className={`bg-[#1E1B16] h-full relative overflow-hidden rounded-3xl group`} style={{ borderColor: pkg.popular ? OLIVE : '#2A2520', boxShadow: pkg.popular ? `0 0 40px ${OLIVE}20, 0 8px 30px rgba(0,0,0,0.5)` : `0 8px 30px rgba(0,0,0,0.4)` }}>
@@ -704,7 +704,7 @@ export default function Home() {
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT }}>{pkg.icon}</div>
                         <h3 className="text-lg font-semibold" style={{ color: OLIVE_LIGHT }}>{pkg.name}</h3>
                       </div>
-                      <CardTitle className="text-[#E2D9CC] text-3xl font-bold">{pkg.price}</CardTitle>
+                      <CardTitle className="text-[#E2D9CC] text-3xl font-bold">{pkg.price}{pkg.originalPrice && <span className="text-base text-[#9A8E80] line-through ml-2">{pkg.originalPrice}</span>}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2.5">
                       {pkg.features.map((f, j) => <div key={j} className="flex items-start gap-2 text-sm"><CheckCircle className="w-5 h-5 mt-0.5 shrink-0" style={{ color: OLIVE_LIGHT }} /><span className="text-[#9A8E80]">{f}</span></div>)}
@@ -739,7 +739,7 @@ export default function Home() {
                 {[
                   { label: 'Impulso $197', commission: '$19.70' },
                   { label: 'Crecimiento $497', commission: '$49.70' },
-                  { label: 'Dominio $997', commission: '$99.70' },
+                  { label: 'Dominio $887', commission: '$88.70' },
                 ].map((item, i) => (
                   <div key={i} className="bg-[#1E1B16] border rounded-2xl p-4 text-center" style={{ borderColor: `${OLIVE}30`, boxShadow: `0 4px 15px rgba(0,0,0,0.3)` }}>
                     <p className="text-[#9A8E80] text-xs mb-1">{item.label}</p>
@@ -841,18 +841,33 @@ export default function Home() {
                 <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}10` }} />
                 <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE_LIGHT}08` }} />
                 <div className="relative z-10 p-6 md:p-10 overflow-hidden">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
-                    <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
+                  {/* Photo + Header row */}
+                  <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+                    {/* Daniela photo — left side, harmonious with text */}
+                    <div className="shrink-0 order-2 md:order-1">
+                      <img
+                        src="/daniela-whitelabel.png"
+                        alt="Daniela Silva — Estratega Digital"
+                        className="w-28 h-28 md:w-36 md:h-36 object-cover rounded-2xl border"
+                        style={{ opacity: 0.5, borderColor: `${OLIVE}40`, boxShadow: `0 8px 30px rgba(0,0,0,0.4)` }}
+                      />
+                    </div>
+                    {/* Text content — right side */}
+                    <div className="flex-1 order-1 md:order-2">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
+                        <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
+                      </div>
+                      <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight break-words">
+                        SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
+                        <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
+                      </h2>
+                      <p className="text-[#9A8E80] mb-0 max-w-2xl leading-relaxed">
+                        Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
+                        Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
+                      </p>
+                    </div>
                   </div>
-                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight break-words">
-                    SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
-                    <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
-                  </h2>
-                  <p className="text-[#9A8E80] mb-8 max-w-2xl leading-relaxed">
-                    Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
-                    Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
-                  </p>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     {[
                       { icon: <Palette className="w-5 h-5" />, text: 'Landing adaptada a tu nicho y marca' },
