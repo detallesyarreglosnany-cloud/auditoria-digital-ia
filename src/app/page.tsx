@@ -582,24 +582,24 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══ WHAT THE REPORT INCLUDES ═══ */}
+        {/* ═══ WHAT THE REPORT INCLUDES — BENEFITS OF $9.99 ═══ */}
         <section className="px-4 md:px-8 py-14 md:py-20">
           <div className="max-w-4xl mx-auto">
-            <FadeIn><h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-3 font-bold">Lo que incluye tu reporte</h2></FadeIn>
-            <FadeIn><p className="text-[#9A8E80] text-center mb-12">Cada sección diseñada para darte claridad y acción inmediata.</p></FadeIn>
+            <FadeIn><h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-3xl text-[#E2D9CC] text-center mb-3 font-bold">Lo que resuelve tu auditoría completa</h2></FadeIn>
+            <FadeIn><p className="text-[#9A8E80] text-center mb-12">Respuestas claras que transforman la forma en que vendes online.</p></FadeIn>
             <div className="grid sm:grid-cols-2 gap-5">
               {[
-                { icon: <BarChart3 className="w-6 h-6" />, title: 'Score General', desc: 'Puntuación del 1 al 100 con desglose por área' },
-                { icon: <AlertTriangle className="w-6 h-6" />, title: '3 Problemas Críticos', desc: 'Con impacto en porcentaje, no en montos' },
-                { icon: <Target className="w-6 h-6" />, title: 'Soluciones Paso a Paso', desc: 'Cada problema con instrucciones claras y detalladas' },
-                { icon: <Clock className="w-6 h-6" />, title: 'Plan de 4 Semanas', desc: 'Al menos 2 acciones por semana para implementar' },
-                { icon: <Megaphone className="w-6 h-6" />, title: 'Presupuesto Publicitario', desc: 'Sugerencias para conseguir clientes potenciales' },
-                { icon: <Zap className="w-6 h-6" />, title: 'Campañas Personalizadas', desc: 'Estrategias de anuncios, presupuesto adicional según tus servicios' },
+                { icon: <AlertTriangle className="w-6 h-6" />, title: 'Tu mayor fuga de dinero', desc: 'Descubre exactamente dónde se te escapa la facturación que deberías estar ganando y cuánto te cuesta cada día sin solucionarlo.' },
+                { icon: <Megaphone className="w-6 h-6" />, title: 'Estrategias para vender más con RRSS', desc: 'Tácticas concretas adaptadas a tu nicho para convertir seguidores en clientes, sin gastar más de lo necesario en anuncios.' },
+                { icon: <Target className="w-6 h-6" />, title: 'Alcanza tu meta sin gastar más', desc: 'Un plan de acción de 4 semanas que optimiza lo que ya tienes para llegar a tu meta de facturación sin incrementar tu presupuesto.' },
+                { icon: <TrendingUp className="w-6 h-6" />, title: 'Por qué invertir en servicios profesionales', desc: 'Datos reales de tu negocio que muestran el retorno de implementar soluciones profesionales versus seguir improvisando solo.' },
+                { icon: <Shield className="w-6 h-6" />, title: 'Qué pasa si no aplicas nada', desc: 'Un diagnóstico del costo de la inacción: cuánto seguirás perdiendo mes a mes si mantienes todo igual sin cambiar nada.' },
+                { icon: <Globe className="w-6 h-6" />, title: 'Presencia digital rentable en 2026', desc: 'Las reglas cambiaron: por qué un negocio con presencia digital optimizada genera hasta 3x más que uno que solo depende del boca a boca.' },
               ].map((item, i) => (
                 <FadeIn key={i} delay={i * 0.08}>
                   <motion.div whileHover={{ y: -3, boxShadow: `0 8px 30px ${OLIVE}20` }} className="flex items-start gap-4 bg-[#1E1B16] rounded-2xl p-5 border transition-all group" style={{ border: `1px solid ${OLIVE}25`, boxShadow: `0 4px 15px rgba(0,0,0,0.3)` }}>
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110" style={{ background: `${OLIVE}15`, color: OLIVE_LIGHT }}>{item.icon}</div>
-                    <div><h4 className="text-[#E2D9CC] font-semibold mb-1">{item.title}</h4><p className="text-[#9A8E80] text-sm">{item.desc}</p></div>
+                    <div><h4 className="text-[#E2D9CC] font-semibold mb-1">{item.title}</h4><p className="text-[#9A8E80] text-sm leading-relaxed">{item.desc}</p></div>
                   </motion.div>
                 </FadeIn>
               ))}
@@ -692,8 +692,8 @@ export default function Home() {
             <FadeIn><div className="text-center mb-12"><Badge className="rounded-full border px-4 py-1.5" style={{ background: `${OLIVE}20`, color: OLIVE_LIGHT, borderColor: `${OLIVE}40` }}><Percent className="w-3 h-3 mr-1" />Si compras HOY, tu auditoría es GRATIS + $9.99 de descuento</Badge></div></FadeIn>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { name: 'Impulso', price: '$197', icon: <Rocket className="w-5 h-5" />, features: ['Página de Ventas Premium Personalizada', 'Optimización de RRSS', 'Integración de pixel y métricas básicas'] },
-                { name: 'Crecimiento', price: '$497', icon: <TrendingUp className="w-5 h-5" />, features: ['Contenido IA para cada producto', 'Asesoría estratégica (1 sesión en vivo semanal)', 'Integraciones métricas y de seguimiento', 'Email Remarketing y seguimiento', 'Mantenimiento 1 mes'], popular: true },
+                { name: 'Impulso', price: '$197', icon: <Rocket className="w-5 h-5" />, features: ['Página de Ventas Premium Personalizada', 'Bot WhatsApp Básico', 'Contenido IA: 10 piezas', 'Optimización de RRSS', 'Integración de pixel y métricas básicas', '30 días soporte'] },
+                { name: 'Crecimiento', price: '$497', icon: <TrendingUp className="w-5 h-5" />, features: ['Marketplace (100 productos)', 'Bot WhatsApp Pro + CRM', 'Contenido IA para cada producto', '1 mes gestión redes', 'Integración omnicanal', 'Asesoría estratégica (1 sesión en vivo semanal)', 'Integraciones métricas y de seguimiento', 'Email Remarketing y seguimiento', 'Mantenimiento 1 mes'], popular: true },
                 { name: 'Dominio', price: '$887', originalPrice: '$1190', icon: <Crown className="w-5 h-5" />, features: ['Todo lo de Crecimiento', 'Agente IA personalizado', 'MiniApp especializada', 'Blueprint campañas virales', 'Mentoría 14 semanas', 'Social Commerce', 'Automatización No-Code', '90 días + 3 meses mantenimiento'] },
               ].map((pkg, i) => (
                 <FadeIn key={i} delay={i * 0.15}>
@@ -837,37 +837,35 @@ export default function Home() {
         <section className="px-4 md:px-8 py-14 md:py-20 bg-[#1E1B16]/50">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
-              <div className="rounded-3xl relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, border: `1px solid ${OLIVE}40`, boxShadow: `0 0 50px ${OLIVE_GLOW}20, 0 8px 40px rgba(0,0,0,0.5)` }}>
+              <div className="rounded-3xl relative overflow-hidden min-h-[520px]" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06, #1E1B16)`, border: `1px solid ${OLIVE}40`, boxShadow: `0 0 50px ${OLIVE_GLOW}20, 0 8px 40px rgba(0,0,0,0.5)` }}>
+                {/* Daniela photo — right side, large, behind text at 50% */}
+                <div className="absolute top-0 right-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none z-0" aria-hidden="true">
+                  <img
+                    src="/daniela-whitelabel.png"
+                    alt=""
+                    className="w-full h-full object-cover object-top"
+                    style={{ opacity: 0.5 }}
+                  />
+                  {/* Gradient fade from left so text area is clean */}
+                  <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, rgba(30,27,22,1) 0%, rgba(30,27,22,0.85) 25%, rgba(30,27,22,0.5) 50%, transparent 100%)` }} />
+                  {/* Bottom fade */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1/3" style={{ background: `linear-gradient(0deg, rgba(30,27,22,1) 0%, transparent 100%)` }} />
+                </div>
                 <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE}10` }} />
                 <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl pointer-events-none" style={{ background: `${OLIVE_LIGHT}08` }} />
-                <div className="relative z-10 p-6 md:p-10 overflow-hidden">
-                  {/* Photo + Header row */}
-                  <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-                    {/* Daniela photo — left side, harmonious with text */}
-                    <div className="shrink-0 order-2 md:order-1">
-                      <img
-                        src="/daniela-whitelabel.png"
-                        alt="Daniela Silva — Estratega Digital"
-                        className="w-28 h-28 md:w-36 md:h-36 object-cover rounded-2xl border"
-                        style={{ opacity: 0.5, borderColor: `${OLIVE}40`, boxShadow: `0 8px 30px rgba(0,0,0,0.4)` }}
-                      />
-                    </div>
-                    {/* Text content — right side */}
-                    <div className="flex-1 order-1 md:order-2">
-                      <div className="flex items-center gap-3 mb-4">
-                        <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
-                        <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
-                      </div>
-                      <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight break-words">
-                        SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
-                        <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
-                      </h2>
-                      <p className="text-[#9A8E80] mb-0 max-w-2xl leading-relaxed">
-                        Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
-                        Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
-                      </p>
-                    </div>
+                <div className="relative z-10 p-6 md:p-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Badge className="rounded-full px-4 py-1.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, color: 'white', boxShadow: NEON_SHADOW_BTN }}>NUEVO</Badge>
+                    <span className="text-[#9A8E80] text-sm">Para estrategas y agencias</span>
                   </div>
+                  <h2 className="font-[family-name:var(--font-poppins)] text-2xl md:text-4xl text-[#E2D9CC] mb-4 font-bold leading-tight break-words max-w-2xl">
+                    SI TU QUIERES IMPLEMENTAR ESTA AUDITORÍA EN TU NEGOCIO,<br />
+                    <span style={{ color: OLIVE_LIGHT }}>LA AJUSTAMOS A TU NICHO</span>
+                  </h2>
+                  <p className="text-[#9A8E80] mb-8 max-w-2xl leading-relaxed">
+                    Belleza, Salud, Fitness, Legal, Coach, Inmobiliario, Gastronomía, Educación y más.
+                    Vende este formato de auditoría como tu propio servicio y genera ingresos pasivos con tu expertise.
+                  </p>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     {[
                       { icon: <Palette className="w-5 h-5" />, text: 'Landing adaptada a tu nicho y marca' },
