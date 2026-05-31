@@ -200,3 +200,24 @@ input:focus, textarea:focus {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
+
+/* ═══ ACCESSIBILITY: Reduced motion ═══ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-shimmer,
+  .animate-float,
+  .animate-pulse-glow,
+  .animate-neon-pulse,
+  .animate-blink-banner {
+    animation: none !important;
+  }
+  .animate-shimmer {
+    -webkit-text-fill-color: #9AAC72;
+    background: none;
+  }
+}

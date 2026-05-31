@@ -17,11 +17,17 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Auditoría Digital IA — Daniela Silva, Estratega Digital",
   description: "Descubre exactamente por qué tu negocio digital no vende lo que debería. Auditoría con Inteligencia Artificial en minutos. Gratis o completa por $9.99.",
-  keywords: ["auditoría digital", "IA", "ventas online", "Daniela Silva", "optimización", "negocio digital"],
+  keywords: ["auditoría digital", "IA", "ventas online", "Daniela Silva", "optimización", "negocio digital", "auditoría gratuita", "inteligencia artificial", "estratega digital"],
   openGraph: {
     title: "Auditoría Digital IA — Daniela Silva, Estratega Digital",
-    description: "Descubre exactamente por qué tu negocio digital no vende lo que debería.",
+    description: "Descubre exactamente por qué tu negocio digital no vende lo que debería. Auditoría con IA en 2 minutos.",
     type: "website",
+    locale: "es_LA",
+    siteName: "Daniela Silva — Auditoría Digital IA",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

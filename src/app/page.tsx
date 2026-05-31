@@ -121,7 +121,7 @@ function AuditResultModal({ result, onClose, formData }: { result: any; onClose:
           <h3 className="font-[family-name:var(--font-poppins)] text-2xl text-[#E2D9CC] font-semibold">
             {result.auditType === 'free' ? 'Tu Auditoría Express' : 'Tu Auditoría Completa'}
           </h3>
-          <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl">&times;</button>
+          <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl" aria-label="Cerrar modal">&times;</button>
         </div>
 
         {/* ─── DELIVERY OPTIONS ─── */}
@@ -286,7 +286,9 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) { toast({ title: 'Campos requeridos', description: 'Nombre y email son obligatorios', variant: 'destructive' }); return; }
+    if (!formData.name.trim()) { toast({ title: 'Nombre requerido', description: 'Ingresa tu nombre para continuar', variant: 'destructive' }); return; }
+    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { toast({ title: 'Email inválido', description: 'Ingresa un correo electrónico válido', variant: 'destructive' }); return; }
+    if (formData.whatsapp && !/^\+?\d{7,15}$/.test(formData.whatsapp.replace(/[\s\-()]/g, ''))) { toast({ title: 'WhatsApp inválido', description: 'Ingresa un número válido (ej: +58 422 1234567)', variant: 'destructive' }); return; }
 
     if (formData.auditType === 'complete') {
       setShowCompletePayment(true);
@@ -336,8 +338,22 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0F0D0B]" style={{ fontFamily: 'var(--font-poppins), system-ui, sans-serif' }}>
 
+      {/* ═══ FIXED BACKGROUND PHOTO — visible throughout entire page ═══ */}
+      <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'url(/daniela-hero.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 20%',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.07,
+        }} />
+        <div className="absolute inset-0" style={{
+          background: 'linear-gradient(180deg, rgba(15,13,11,0.6) 0%, rgba(15,13,11,0.75) 50%, rgba(15,13,11,0.92) 100%)',
+        }} />
+      </div>
+
       {/* ═══ BLINKING PROMO BANNER ═══ */}
-      <div className="text-white text-center py-2.5 px-4 text-sm font-bold overflow-hidden animate-blink-banner" style={{ background: `linear-gradient(90deg, ${OLIVE_DARK}, ${OLIVE}, ${OLIVE_LIGHT}, ${OLIVE}, ${OLIVE_DARK})`, backgroundSize: '300% 100%', animation: 'shimmer 3s linear infinite, banner-glow 1.5s ease-in-out infinite' }}>
+      <div className="relative z-10 text-white text-center py-2.5 px-4 text-sm font-bold overflow-hidden animate-blink-banner" style={{ background: `linear-gradient(90deg, ${OLIVE_DARK}, ${OLIVE}, ${OLIVE_LIGHT}, ${OLIVE}, ${OLIVE_DARK})`, backgroundSize: '300% 100%', animation: 'shimmer 3s linear infinite, banner-glow 1.5s ease-in-out infinite' }}>
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <Gift className="w-4 h-4" />
           <span>OFERTA: Adquiere un paquete HOY y tu auditoría es GRATIS + $9.99 de descuento</span>
@@ -348,7 +364,7 @@ export default function Home() {
       </div>
 
       {/* ═══ NAV ═══ */}
-      <nav className="border-b border-[#2A2520]/60 px-4 md:px-8 py-3 backdrop-blur-md bg-[#0F0D0B]/80 sticky top-0 z-40">
+      <nav className="relative z-40 border-b border-[#2A2520]/60 px-4 md:px-8 py-3 backdrop-blur-md bg-[#0F0D0B]/80 sticky top-0">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center animate-pulse-glow" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}><Zap className="w-4 h-4 text-white" /></div>
@@ -358,19 +374,19 @@ export default function Home() {
             </div>
           </div>
           <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="rounded-2xl text-white border-0" style={{ borderColor: OLIVE, color: 'white', background: `${OLIVE}20`, boxShadow: `0 0 10px ${OLIVE_GLOW}40` }}> <WhatsAppIcon className="w-4 h-4 mr-1" /> WhatsApp </Button>
+            <Button variant="outline" size="sm" className="rounded-2xl text-white border-0" style={{ borderColor: OLIVE, color: 'white', background: `${OLIVE}20`, boxShadow: `0 0 10px ${OLIVE_GLOW}40` }} aria-label="Contactar por WhatsApp"> <WhatsAppIcon className="w-4 h-4 mr-1" /> WhatsApp </Button>
           </a>
         </div>
       </nav>
 
-      <main className="flex-1">
+      <main className="relative z-10 flex-1">
 
         {/* ═══ HERO WITH PHOTO BACKGROUND ═══ */}
         <section className="relative px-4 md:px-8 py-16 md:py-24 overflow-hidden min-h-[85vh] flex items-center">
-          {/* Photo background */}
+          {/* Photo background — increased visibility */}
           <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0" style={{ backgroundImage: 'url(/daniela-hero.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', opacity: 0.15, filter: 'blur(1px)' }} />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(15,13,11,0.7) 0%, rgba(15,13,11,0.5) 40%, rgba(15,13,11,0.85) 75%, rgba(15,13,11,1) 100%)` }} />
+            <div className="absolute inset-0" style={{ backgroundImage: 'url(/daniela-hero.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', opacity: 0.24 }} />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, rgba(15,13,11,0.5) 0%, rgba(15,13,11,0.35) 30%, rgba(15,13,11,0.65) 65%, rgba(15,13,11,0.95) 100%)` }} />
           </div>
           {/* Decorative orbs */}
           <div className="absolute top-20 left-10 w-72 h-72 rounded-full blur-3xl pointer-events-none animate-float" style={{ background: `${OLIVE}12` }} />
@@ -755,13 +771,13 @@ export default function Home() {
                       <h4 className="text-[#E2D9CC] font-semibold text-lg">¡Tu enlace está listo!</h4>
                       <div className="flex items-center gap-2 bg-[#0F0D0B] rounded-xl p-3 border" style={{ borderColor: `${OLIVE}30` }}>
                         <code className="text-xs flex-1 break-all" style={{ color: OLIVE_LIGHT }}>{refResult.link}</code>
-                        <button onClick={copyLink} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar enlace">
+                        <button onClick={copyLink} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar enlace" aria-label="Copiar enlace de referido">
                           {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
                         </button>
                       </div>
                       <div className="flex items-center gap-2 bg-[#0F0D0B] rounded-xl p-3 border" style={{ borderColor: `${OLIVE}30` }}>
                         <code className="text-sm flex-1 break-all font-bold" style={{ color: OLIVE_LIGHT }}>{refResult.code}</code>
-                        <button onClick={copyCode} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar código">
+                        <button onClick={copyCode} className="shrink-0 p-1.5 rounded-lg hover:bg-[#2A2520] transition-colors" title="Copiar código" aria-label="Copiar código de referido">
                           {codeCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#9A8E80]" />}
                         </button>
                       </div>
@@ -920,7 +936,7 @@ export default function Home() {
       </main>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="border-t border-[#2A2520]/50 px-4 md:px-8 py-8 mt-auto">
+      <footer className="relative z-10 border-t border-[#2A2520]/50 px-4 md:px-8 py-8 mt-auto">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})` }}><Zap className="w-3 h-3 text-white" /></div>
@@ -928,17 +944,17 @@ export default function Home() {
             <span className="text-[#9A8E80] text-xs">Estratega Digital</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="https://instagram.com/danieladigital3.0" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group">
+            <a href="https://instagram.com/danieladigital3.0" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group" aria-label="Instagram de Daniela Silva">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:shadow-lg" style={{ background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)', boxShadow: '0 2px 10px rgba(225,48,108,0.3)' }}>
                 <Instagram className="w-5 h-5 text-white" />
               </div>
             </a>
-            <a href="https://tiktok.com/@elvlog.dedani" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group">
+            <a href="https://tiktok.com/@elvlog.dedani" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group" aria-label="TikTok de Daniela Silva">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:shadow-lg" style={{ background: '#010101', border: '1px solid #25F4EE', boxShadow: '0 2px 10px rgba(0,242,234,0.3)' }}>
                 <TikTokIcon className="w-5 h-5 text-white" />
               </div>
             </a>
-            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group">
+            <a href="https://wa.me/584221754245" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform group" aria-label="WhatsApp de Daniela Silva">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:shadow-lg" style={{ background: '#25D366', boxShadow: '0 2px 10px rgba(37,211,102,0.3)' }}>
                 <WhatsAppIcon className="w-5 h-5 text-white" />
               </div>

@@ -64,3 +64,37 @@ No change needed — already in correct order (White Label section at line ~812,
 
 1. `/home/z/my-project/src/app/api/audit/route.ts` — Added resend email handler (no regeneration), Daniela lead notification
 2. `/home/z/my-project/src/app/page.tsx` — All frontend changes (payment flow, referral UX, overflow fixes, modal improvements)
+
+---
+
+## Date: 2026-05-31
+
+### 7. Photo Visibility Enhancement (USER REQUEST)
+
+**File: `/src/app/page.tsx`**
+- **Hero photo opacity**: Increased from 0.15 to 0.24 (+9% as requested)
+- **Removed blur filter**: Previously `filter: 'blur(1px)'` — now removed for sharper photo
+- **Lightened dark overlay**: Changed gradient from `rgba(15,13,11,0.7/0.5/0.85/1)` to `rgba(15,13,11,0.5/0.35/0.65/0.95)` — less dark = more photo visible
+- **Added FIXED background photo**: New `fixed inset-0 z-0` div with `opacity: 0.07` that stays visible as you scroll the entire landing page — Daniela's photo now appears throughout the full page length
+- Added `relative z-10` to banner, nav, main, and footer to layer properly above the fixed background
+- Confirmed `© 2026` in footer remains unchanged
+
+### 8. Medium Priority Suggestions Applied
+
+**File: `/src/app/api/route.ts`**
+- Replaced dead "Hello world" endpoint with proper health-check JSON response with service name and version
+
+**File: `/src/app/page.tsx`**
+- **Client-side form validation**: Added email regex validation, WhatsApp number format validation, and trimmed name check — provides specific error messages for each field instead of generic "Campos requeridos"
+
+### 9. Low Priority Suggestions Applied
+
+**File: `/src/app/globals.css`**
+- **prefers-reduced-motion support**: Added comprehensive `@media (prefers-reduced-motion: reduce)` rule that disables all custom animations (shimmer, float, pulse-glow, neon-pulse, blink-banner) and reduces transitions to near-zero — respects accessibility preferences
+
+**File: `/src/app/layout.tsx`**
+- **SEO metadata enhancement**: Added `locale: "es_LA"`, `siteName`, expanded keywords list (added "auditoría gratuita", "inteligencia artificial", "estratega digital"), improved OG description, added `robots: { index: true, follow: true }`
+
+**File: `/src/app/page.tsx`**
+- **ARIA labels added**: Modal close button (`aria-label="Cerrar modal"`), nav WhatsApp button (`aria-label="Contactar por WhatsApp"`), all 3 social links in footer (Instagram, TikTok, WhatsApp), referral copy buttons (`aria-label="Copiar enlace/código de referido"`)
+- Fixed background photo div marked `aria-hidden="true"` (decorative, not content)
