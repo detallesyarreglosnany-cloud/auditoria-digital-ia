@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateAudit, generateFreeReportEmail, generateCompleteReportMarkdown, type AuditInput } from '@/lib/audit-engine';
+import { upsertBrevoContact, updateBrevoContact, BREVO_LIST_IDS, addContactToList } from '@/lib/brevo';
 import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -20,32 +21,40 @@ export async function POST(request: NextRequest) {
         const existingLead = await db.lead.findFirst({
           where: { email: body.email },
           orderBy: { createdAt: 'desc' },
-          include: { auditResults: { orderBy: { createdAt: 'desc' }, take: 1 } },
         });
 
-        if (existingLead && existingLead.auditResults.length > 0) {
-          const auditData = existingLead.auditResults[0];
-          const result = JSON.parse(auditData.fullReport || '{}');
+        if (existingLead) {
+          // Find latest audit result
+          const auditResults = await db.auditResult.findMany({
+            where: { leadId: existingLead.id },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          });
 
-          if (resend && process.env.RESEND_API_KEY) {
-            if (existingLead.auditType === 'free') {
-              const freeEmail = generateFreeReportEmail(result, existingLead.name);
-              await resend.emails.send({
-                from: 'Daniela Silva <auditoria@danielasilva.com>',
-                to: existingLead.email,
-                subject: `Tu Auditoría Digital Express — Score: ${result.scoreGeneral}/100`,
-                text: freeEmail,
-              });
-            } else {
-              const completeReport = generateCompleteReportMarkdown(result, existingLead.name);
-              await resend.emails.send({
-                from: 'Daniela Silva <auditoria@danielasilva.com>',
-                to: existingLead.email,
-                subject: `Tu Auditoría Digital Completa — Score: ${result.scoreGeneral}/100`,
-                text: completeReport,
-              });
+          if (auditResults.length > 0) {
+            const auditData = auditResults[0];
+            const result = JSON.parse(auditData.fullReport || '{}');
+
+            if (resend && process.env.RESEND_API_KEY) {
+              if (existingLead.auditType === 'free') {
+                const freeEmail = generateFreeReportEmail(result, existingLead.name);
+                await resend.emails.send({
+                  from: 'Daniela Silva <auditoria@danielasilva.com>',
+                  to: existingLead.email,
+                  subject: `Tu Auditoría Digital Express — Score: ${result.scoreGeneral || result.score}/100`,
+                  text: freeEmail,
+                });
+              } else {
+                const completeReport = generateCompleteReportMarkdown(result, existingLead.name);
+                await resend.emails.send({
+                  from: 'Daniela Silva <auditoria@danielasilva.com>',
+                  to: existingLead.email,
+                  subject: `Tu Auditoría Digital Completa — Score: ${result.scoreGeneral || result.score}/100`,
+                  text: completeReport,
+                });
+              }
+              emailSent = true;
             }
-            emailSent = true;
           }
         }
       } catch (emailError) {
@@ -66,6 +75,7 @@ export async function POST(request: NextRequest) {
             email: body.email || '',
             whatsapp: body.whatsapp || '',
             website: body.website || '',
+            socialLink: body.socialLink || '',
             businessType: body.businessType || '',
             followers: body.followers || '',
             monthlyRevenue: body.monthlyRevenue || '',
@@ -77,8 +87,39 @@ export async function POST(request: NextRequest) {
             reportData: '',
             referralCode: body.referralCode || null,
             source: body.referralCode ? 'referral' : 'organic',
+            serviceMinPrice: body.serviceMinPrice || '',
+            serviceMaxPrice: body.serviceMaxPrice || '',
+            paymentStatus: 'pending',
           }
         });
+
+        // ─── SYNC TO BREVO (Complete audit lead — pending payment) ───
+        const brevoResult = await upsertBrevoContact({
+          email: body.email || '',
+          name: body.name || '',
+          whatsapp: body.whatsapp || '',
+          website: body.website || '',
+          socialLink: body.socialLink || '',
+          businessType: body.businessType || '',
+          followers: body.followers || '',
+          monthlyRevenue: body.monthlyRevenue || '',
+          revenueGoal: body.revenueGoal || '',
+          usesAutomation: body.usesAutomation || false,
+          frustration: body.frustration || '',
+          auditType: 'complete',
+          referralCode: body.referralCode || '',
+          source: body.referralCode ? 'referral' : 'organic',
+          serviceMinPrice: body.serviceMinPrice || '',
+          serviceMaxPrice: body.serviceMaxPrice || '',
+        });
+
+        // Update Brevo sync status
+        if (brevoResult.success) {
+          await db.lead.update({
+            where: { id: lead.id },
+            data: { brevoSynced: true, brevoContactId: brevoResult.contactId || '' },
+          });
+        }
 
         // Notify Daniela about the new complete audit lead
         try {
@@ -87,7 +128,7 @@ export async function POST(request: NextRequest) {
               from: 'Daniela Silva <auditoria@danielasilva.com>',
               to: DANIELA_EMAIL,
               subject: `🔔 Nuevo lead COMPLETO: ${body.name} — $9.99 pendiente de pago`,
-              text: `¡Nuevo lead para auditoría COMPLETA!\n\nNombre: ${body.name}\nEmail: ${body.email}\nWhatsApp: ${body.whatsapp || 'No proporcionado'}\nNegocio: ${body.businessType || 'No especificado'}\nFrustración: ${body.frustration || 'No especificada'}\n\n⚠️ Pago pendiente — El usuario fue redirigido a WhatsApp para pagar.\n\n— Sistema de Auditoría Digital`,
+              text: `¡Nuevo lead para auditoría COMPLETA!\n\nNombre: ${body.name}\nEmail: ${body.email}\nWhatsApp: ${body.whatsapp || 'No proporcionado'}\nNegocio: ${body.businessType || 'No especificado'}\nFacturación: ${body.monthlyRevenue || 'No especificada'}\nMeta: ${body.revenueGoal || 'No especificada'}\nFrustración: ${body.frustration || 'No especificada'}\nServicios: $${body.serviceMinPrice || '?'} - $${body.serviceMaxPrice || '?'}\n\n⚠️ Pago pendiente — El usuario fue redirigido a WhatsApp para pagar.\n\n${brevoResult.success ? '✅ Sincronizado con Brevo para seguimiento.' : '⚠️ No se sincronizó con Brevo.'}\n\n— Sistema de Auditoría Digital`,
             });
           }
         } catch (notifyError) {
@@ -148,6 +189,7 @@ export async function POST(request: NextRequest) {
         email: auditInput.email,
         whatsapp: auditInput.whatsapp,
         website: auditInput.website,
+        socialLink: auditInput.socialLink,
         businessType: auditInput.businessType,
         followers: auditInput.followers,
         monthlyRevenue: auditInput.monthlyRevenue,
@@ -159,6 +201,9 @@ export async function POST(request: NextRequest) {
         reportData: JSON.stringify(result),
         referralCode: auditInput.referralCode,
         source: auditInput.referralCode ? 'referral' : 'organic',
+        serviceMinPrice: auditInput.serviceMinPrice || '',
+        serviceMaxPrice: auditInput.serviceMaxPrice || '',
+        paymentStatus: auditInput.auditType === 'free' ? 'free' : 'pending',
       }
     });
 
@@ -175,9 +220,39 @@ export async function POST(request: NextRequest) {
         problems: JSON.stringify(result.problems),
         recommendations: JSON.stringify(result.adBudget),
         adBudget: JSON.stringify(result.adBudget),
-        fullReport: result.fullReport,
+        fullReport: JSON.stringify(result),
       }
     });
+
+    // ─── SYNC TO BREVO ───
+    // This is the SECRET: recollect all data for email marketing, follow-up, and algorithm learning
+    const brevoResult = await upsertBrevoContact({
+      email: auditInput.email,
+      name: auditInput.name,
+      whatsapp: auditInput.whatsapp,
+      website: auditInput.website,
+      socialLink: auditInput.socialLink,
+      businessType: auditInput.businessType,
+      followers: auditInput.followers,
+      monthlyRevenue: auditInput.monthlyRevenue,
+      revenueGoal: auditInput.revenueGoal,
+      usesAutomation: auditInput.usesAutomation,
+      frustration: auditInput.frustration,
+      auditType: auditInput.auditType,
+      score: result.scoreGeneral,
+      serviceMinPrice: auditInput.serviceMinPrice,
+      serviceMaxPrice: auditInput.serviceMaxPrice,
+      referralCode: auditInput.referralCode,
+      source: auditInput.referralCode ? 'referral' : 'organic',
+    });
+
+    // Update Brevo sync status in DB
+    if (brevoResult.success) {
+      await db.lead.update({
+        where: { id: lead.id },
+        data: { brevoSynced: true, brevoContactId: brevoResult.contactId || '' },
+      });
+    }
 
     // ─── SEND EMAIL TO USER ───
     let emailSent = false;
@@ -215,7 +290,7 @@ export async function POST(request: NextRequest) {
           from: 'Daniela Silva <auditoria@danielasilva.com>',
           to: DANIELA_EMAIL,
           subject: `🔔 Nuevo lead: ${auditInput.name} — ${auditInput.auditType === 'free' ? 'Express' : 'Completa'} (Score: ${result.scoreGeneral}/100)`,
-          text: `¡Nuevo lead!\n\nNombre: ${auditInput.name}\nEmail: ${auditInput.email}\nWhatsApp: ${auditInput.whatsapp || 'No proporcionado'}\nNegocio: ${auditInput.businessType || 'No especificado'}\nSitio web: ${auditInput.website || 'No'}\nRed social: ${auditInput.socialLink || 'No'}\nTipo: ${auditInput.auditType === 'free' ? 'Express (Gratis)' : 'Completa ($9.99)'}\nScore: ${result.scoreGeneral}/100\nFrustración: ${auditInput.frustration || 'No especificada'}\nCódigo referido: ${auditInput.referralCode || 'Ninguno'}\n\n— Sistema de Auditoría Digital`,
+          text: `¡Nuevo lead!\n\nNombre: ${auditInput.name}\nEmail: ${auditInput.email}\nWhatsApp: ${auditInput.whatsapp || 'No proporcionado'}\nNegocio: ${auditInput.businessType || 'No especificado'}\nSitio web: ${auditInput.website || 'No'}\nRed social: ${auditInput.socialLink || 'No'}\nTipo: ${auditInput.auditType === 'free' ? 'Express (Gratis)' : 'Completa ($9.99)'}\nScore: ${result.scoreGeneral}/100\nFrustración: ${auditInput.frustration || 'No especificada'}\nServicios: $${auditInput.serviceMinPrice || '?'} - $${auditInput.serviceMaxPrice || '?'}\nCódigo referido: ${auditInput.referralCode || 'Ninguno'}\n\n${brevoResult.success ? '✅ Sincronizado con Brevo para seguimiento.' : '⚠️ No se sincronizó con Brevo.'}\n\n— Sistema de Auditoría Digital`,
         });
       }
     } catch (notifyError) {
@@ -234,6 +309,8 @@ ${auditInput.auditType === 'complete' ? `📋 PLAN DE ACCIÓN:
 Semana 1: ${result.planAction.semana1.join(', ')}
 Semana 2: ${result.planAction.semana2.join(', ')}
 
+💰 FUGA DE DINERO: ${result.moneyLeak?.substring(0, 200)}...
+
 📢 PRESUPUESTO ADS: ${result.adBudget.dailyBudgetPercent}
 
 Generado por Daniela Silva, Estratega Digital` : `💡 Obtén soluciones paso a paso + campañas personalizadas → Auditoría Completa $9.99
@@ -250,11 +327,19 @@ Generado por Daniela Silva, Estratega Digital`}`;
         score: result.scoreGeneral,
         problems: result.problems.map(p => ({
           title: p.title,
-          impactPercent: p.impactPercent
+          description: p.description,
+          impactPercent: p.impactPercent,
+          area: p.area,
+          severity: p.severity,
+          beforeScenario: p.beforeScenario,
+          afterScenario: p.afterScenario,
         })),
         emailPreview: freeEmail,
         whatsappReport: waReport,
         emailSent,
+        // Include benefit answers even in free for preview
+        moneyLeak: result.moneyLeak,
+        costOfInaction: result.costOfInaction,
         message: emailSent ? 'Tu auditoría ha sido enviada a tu email.' : 'Tu auditoría express está lista.'
       });
     } else {
@@ -275,9 +360,17 @@ Generado por Daniela Silva, Estratega Digital`}`;
         problems: result.problems,
         adBudget: result.adBudget,
         planAction: result.planAction,
+        // New benefit-oriented answers
+        moneyLeak: result.moneyLeak,
+        socialStrategy: result.socialStrategy,
+        goalWithoutSpending: result.goalWithoutSpending,
+        whyInvest: result.whyInvest,
+        costOfInaction: result.costOfInaction,
+        digital2026: result.digital2026,
         reportMarkdown: completeReport,
         whatsappReport: waReport,
         emailSent,
+        brevoSynced: brevoResult.success,
         message: emailSent ? 'Tu auditoría completa ha sido enviada a tu email.' : 'Tu auditoría completa ha sido generada.'
       });
     }

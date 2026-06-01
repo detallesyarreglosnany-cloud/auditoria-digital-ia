@@ -16,6 +16,7 @@ model Lead {
   email           String
   whatsapp        String?
   website         String?
+  socialLink      String?   // Social media link (Instagram, TikTok, etc.)
   businessType    String?
   followers       String?
   monthlyRevenue  String?
@@ -27,8 +28,17 @@ model Lead {
   reportData      String?  // JSON string with the full AI report
   referralCode    String?  // The code of who referred this lead
   source          String?  // "organic", "referral", "ad"
+  serviceMinPrice String?  // Cheapest service price
+  serviceMaxPrice String?  // Most expensive service price
+  brevoSynced     Boolean  @default(false) // Whether data was sent to Brevo
+  brevoContactId  String?  // Brevo contact ID for tracking
+  paymentStatus   String   @default("pending") // "pending", "paid", "free"
+  notes           String?  // Internal notes / follow-up data
+  lastFollowUp    DateTime? // Last follow-up date
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  auditResults    AuditResult[]
 }
 
 model Referral {
@@ -41,6 +51,7 @@ model Referral {
   conversions   Int      @default(0)
   commissionOwed   Float    @default(0)
   commissionPaid   Float    @default(0)
+  brevoSynced   Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -48,6 +59,7 @@ model Referral {
 model AuditResult {
   id              String   @id @default(cuid())
   leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   scoreGeneral    Int
   scoreVentas     Int?
   scorePresencia  Int?

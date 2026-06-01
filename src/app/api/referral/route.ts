@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { upsertBrevoReferralPartner } from '@/lib/brevo';
 import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -109,7 +110,22 @@ export async function POST(request: NextRequest) {
     } catch (e) { console.error('Referral email error:', e); }
 
     // Build WhatsApp confirmation message
-    const waMsg = encodeURIComponent(`¡Hola ${name}! Tu código de referido está listo:\n\n🔗 Enlace: ${referralLink}\n📋 Código: ${referral.code}\n\nComparte y gana 10% por cada paquete vendido.\n- Impulso $197 → $19.70\n- Crecimiento $497 → $49.70\n- Dominio $997 → $99.70`);
+    const waMsg = encodeURIComponent(`¡Hola ${name}! Tu código de referido está listo:\n\n🔗 Enlace: ${referralLink}\n📋 Código: ${referral.code}\n\nComparte y gana 10% por cada paquete vendido.\n- Impulso $197 → $19.70\n- Crecimiento $497 → $49.70\n- Dominio $887 → $88.70`);
+
+    // Sync referral partner to Brevo for email marketing & tracking
+    const brevoResult = await upsertBrevoReferralPartner({
+      email,
+      name,
+      phone: phone || undefined,
+      referralCode: referral.code,
+    });
+
+    if (brevoResult.success) {
+      await db.referral.update({
+        where: { id: referral.id },
+        data: { brevoSynced: true },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -117,6 +133,7 @@ export async function POST(request: NextRequest) {
       referralLink,
       whatsappLink: `https://wa.me/?text=${waMsg}`,
       emailSent,
+      brevoSynced: brevoResult.success,
       message: emailSent ? 'Código creado y enviado a tu email.' : 'Código de referido creado exitosamente.'
     });
 

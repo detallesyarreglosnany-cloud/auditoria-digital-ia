@@ -83,10 +83,15 @@ function ScoreCircle({ score, size = 120 }: { score: number; size?: number }) {
 }
 
 function AuditResultModal({ result, onClose, formData }: { result: any; onClose: () => void; formData: any }) {
-  const [showFull, setShowFull] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'problems' | 'benefits' | 'plan'>('overview');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<'none' | 'wa' | 'email'>('none');
   if (!result) return null;
+
+  const scores = result.scores || {};
+  const isComplete = result.auditType === 'complete';
+  const scoreColor = (s: number) => s >= 70 ? OLIVE_LIGHT : s >= 40 ? '#D4A843' : '#DC2626';
+  const severityBadge = (s: string) => s === 'critical' ? { bg: 'rgba(220,38,38,0.15)', color: '#F87171', label: 'CRÍTICO' } : s === 'important' ? { bg: 'rgba(212,168,67,0.15)', color: '#D4A843', label: 'IMPORTANTE' } : { bg: `${OLIVE}20`, color: OLIVE_LIGHT, label: 'OPORTUNIDAD' };
 
   const sendToWhatsApp = () => {
     const report = result.whatsappReport || `📊 Auditoría Digital — ${formData.name}\n\n🎯 Score: ${result.score}/100\n\n🚨 Problemas:\n${result.problems.map((p: any, i: number) => `${i + 1}. ${p.title} → ${p.impactPercent}% mejora`).join('\n')}`;
@@ -114,97 +119,327 @@ function AuditResultModal({ result, onClose, formData }: { result: any; onClose:
     setSending(false);
   };
 
+  const scoreAreas = [
+    { key: 'ventas', label: 'Ventas & Conversión', icon: <TrendingUp className="w-4 h-4" /> },
+    { key: 'presencia', label: 'Presencia Digital', icon: <Globe className="w-4 h-4" /> },
+    { key: 'automatizacion', label: 'Automatización', icon: <Bot className="w-4 h-4" /> },
+    { key: 'experiencia', label: 'Experiencia', icon: <Star className="w-4 h-4" /> },
+    { key: 'retencion', label: 'Retención', icon: <Users className="w-4 h-4" /> },
+  ];
+
+  const benefitCards = [
+    { icon: <AlertTriangle className="w-5 h-5" />, title: 'Tu mayor fuga de dinero', text: result.moneyLeak },
+    { icon: <Megaphone className="w-5 h-5" />, title: 'Vender más con RRSS', text: result.socialStrategy },
+    { icon: <Target className="w-5 h-5" />, title: 'Meta sin gastar más', text: result.goalWithoutSpending },
+    { icon: <TrendingUp className="w-5 h-5" />, title: 'Por qué invertir', text: result.whyInvest },
+    { icon: <Shield className="w-5 h-5" />, title: 'Costo de no hacer nada', text: result.costOfInaction },
+    { icon: <Globe className="w-5 h-5" />, title: 'Digital rentable 2026', text: result.digital2026 },
+  ];
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#1E1B16] rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 border border-[#2A2520]" style={{ boxShadow: NEON_SHADOW }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-[family-name:var(--font-poppins)] text-2xl text-[#E2D9CC] font-semibold">
-            {result.auditType === 'free' ? 'Tu Auditoría Express' : 'Tu Auditoría Completa'}
-          </h3>
-          <button onClick={onClose} className="text-[#9A8E80] hover:text-[#E2D9CC] text-2xl" aria-label="Cerrar modal">&times;</button>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3" onClick={onClose}>
+      <motion.div initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-[#1E1B16] rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-[#2A2520]" style={{ boxShadow: `0 0 60px ${OLIVE_GLOW}30, 0 25px 50px rgba(0,0,0,0.6)` }} onClick={e => e.stopPropagation()}>
+        
+        {/* ─── PREMIUM HEADER WITH GRADIENT ─── */}
+        <div className="relative overflow-hidden rounded-t-3xl px-6 pt-6 pb-4" style={{ background: `linear-gradient(135deg, ${OLIVE}18, ${OLIVE_LIGHT}08, transparent)` }}>
+          <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${OLIVE_DARK}, ${OLIVE}, ${OLIVE_LIGHT}, ${OLIVE}, ${OLIVE_DARK})` }} />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${OLIVE}, ${OLIVE_LIGHT})`, boxShadow: NEON_SHADOW_BTN }}>
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-[family-name:var(--font-poppins)] text-xl text-[#E2D9CC] font-bold">
+                  {isComplete ? 'Tu Diagnóstico Completo' : 'Tu Diagnóstico Express'}
+                </h3>
+                <p className="text-[#9A8E80] text-xs">Auditoría Digital IA — {formData.name}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#9A8E80] hover:text-[#E2D9CC] hover:bg-[#2A2520] transition-colors" aria-label="Cerrar modal">&times;</button>
+          </div>
+
+          {/* Score + KPI Row */}
+          <div className="flex items-center gap-5">
+            <ScoreCircle score={result.score} size={100} />
+            <div className="flex-1">
+              <p className="text-[#9A8E80] text-xs uppercase tracking-wider mb-1">Score General</p>
+              <p className="text-lg text-[#E2D9CC] font-semibold">
+                {result.score >= 70 ? 'Va bien, pero puedes mejorar' : result.score >= 40 ? 'Hay oportunidades importantes' : 'Necesita atención urgente'}
+              </p>
+              {/* Mini score bars */}
+              <div className="grid grid-cols-5 gap-2 mt-3">
+                {scoreAreas.map(area => {
+                  const val = (scores as any)[area.key] || 0;
+                  return (
+                    <div key={area.key} className="text-center">
+                      <div className="h-1.5 rounded-full bg-[#2A2520] overflow-hidden mb-1">
+                        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${val}%`, background: scoreColor(val) }} />
+                      </div>
+                      <span className="text-[9px] text-[#9A8E80]">{area.label.split(' ')[0]}</span>
+                      <span className="block text-[11px] font-bold" style={{ color: scoreColor(val) }}>{val}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ─── DELIVERY OPTIONS ─── */}
-        <div className="rounded-2xl p-5 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}15, ${OLIVE_LIGHT}08)`, borderColor: `${OLIVE}50` }}>
-          <p className="text-[#E2D9CC] font-bold text-base mb-2">📧 Tu reporte fue enviado a tu email</p>
-          <p className="text-[#9AAC72] text-sm mb-3">También puedes enviarlo a tu WhatsApp:</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={sendToWhatsApp} className="flex-1 font-semibold text-white rounded-2xl h-12 text-sm" style={{ background: '#25D366', boxShadow: '0 0 15px rgba(37,211,102,0.3)' }}>
-              <WhatsAppIcon className="w-5 h-5 mr-2" />{sent === 'wa' ? '¡Enviado a WhatsApp!' : 'Enviar a WhatsApp'}
-            </Button>
-            <Button onClick={sendToEmail} disabled={sending} className="flex-1 font-semibold text-white rounded-2xl h-12 text-sm" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
-              {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}{sent === 'email' ? '¡Email reenviado!' : sending ? 'Enviando...' : 'Reenviar por Email'}
-            </Button>
-          </div>
-          {result.emailSent && <p className="text-[#9AAC72] text-xs mt-2 text-center">✓ Reporte enviado a {formData.email}</p>}
+        {/* ─── TAB NAVIGATION ─── */}
+        <div className="flex gap-1 px-6 py-2 border-b border-[#2A2520] overflow-x-auto">
+          {[
+            { id: 'overview' as const, label: 'Resumen', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+            { id: 'problems' as const, label: 'Problemas', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+            { id: 'benefits' as const, label: 'Beneficios', icon: <Sparkles className="w-3.5 h-3.5" /> },
+            ...(isComplete ? [{ id: 'plan' as const, label: 'Plan de Acción', icon: <Target className="w-3.5 h-3.5" /> }] : []),
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${activeTab === tab.id ? 'text-white' : 'text-[#9A8E80] hover:text-[#E2D9CC]'}`}
+              style={activeTab === tab.id ? { background: `${OLIVE}25`, border: `1px solid ${OLIVE}50`, boxShadow: `0 0 10px ${OLIVE_GLOW}20` } : { border: '1px solid transparent' }}>
+              {tab.icon}{tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="flex items-center gap-6 mb-8">
-          <ScoreCircle score={result.score} />
-          <div>
-            <p className="text-[#9A8E80] text-sm mb-1">Score General</p>
-            <p className="text-lg text-[#E2D9CC]">
-              {result.score >= 70 ? 'Va bien, pero puede mejorar' : result.score >= 40 ? 'Hay oportunidades importantes' : 'Necesita atención urgente'}
-            </p>
-          </div>
-        </div>
-        <div className="space-y-4 mb-6">
-          {result.problems.map((p: any, i: number) => (
-            <div key={i} className="bg-[#0F0D0B] rounded-2xl p-4 border border-[#2A2520]" style={{ boxShadow: `0 4px 20px rgba(0,0,0,0.3)` }}>
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
-                <div>
-                  <h4 className="text-[#E2D9CC] font-semibold mb-1">{p.title}</h4>
-                  <p className="text-[#9A8E80] text-sm mb-2">Mejora potencial: hasta <span style={{ color: OLIVE_LIGHT }} className="font-semibold">{p.impactPercent}%</span></p>
-                  {result.auditType === 'complete' && (
-                    <div className="text-sm text-[#9A8E80]">
-                      <p className="mb-2">{p.description}</p>
-                      <p className="text-[#E2D9CC] font-medium mb-1">Solución:</p>
-                      <p className="mb-2">{p.solution}</p>
-                      {p.steps && <ol className="list-decimal list-inside space-y-1">{p.steps.map((s: string, j: number) => <li key={j}>{s}</li>)}</ol>}
+        <div className="p-6">
+          {/* ─── OVERVIEW TAB ─── */}
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {scoreAreas.map(area => {
+                  const val = (scores as any)[area.key] || 0;
+                  return (
+                    <div key={area.key} className="rounded-2xl p-3 border" style={{ background: `linear-gradient(135deg, ${scoreColor(val)}10, transparent)`, borderColor: `${scoreColor(val)}30` }}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${scoreColor(val)}20`, color: scoreColor(val) }}>{area.icon}</div>
+                        <span className="text-[10px] text-[#9A8E80] uppercase tracking-wider">{area.label}</span>
+                      </div>
+                      <p className="text-2xl font-bold" style={{ color: scoreColor(val) }}>{val}<span className="text-xs text-[#9A8E80]">/100</span></p>
+                      <div className="h-1.5 rounded-full bg-[#2A2520] mt-2 overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${val}%`, background: scoreColor(val) }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Delivery Options */}
+              <div className="rounded-2xl p-4 border" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06)`, borderColor: `${OLIVE}40` }}>
+                <p className="text-[#E2D9CC] font-bold text-sm mb-2">📧 Tu reporte fue enviado a tu email</p>
+                <p className="text-[#9AAC72] text-xs mb-3">También puedes enviarlo a tu WhatsApp:</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button onClick={sendToWhatsApp} className="flex-1 font-semibold text-white rounded-xl h-10 text-xs" style={{ background: '#25D366', boxShadow: '0 0 12px rgba(37,211,102,0.3)' }}>
+                    <WhatsAppIcon className="w-4 h-4 mr-2" />{sent === 'wa' ? '¡Enviado!' : 'Enviar a WhatsApp'}
+                  </Button>
+                  <Button onClick={sendToEmail} disabled={sending} className="flex-1 font-semibold text-white rounded-xl h-10 text-xs" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}>
+                    {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}{sent === 'email' ? '¡Email reenviado!' : sending ? 'Enviando...' : 'Reenviar por Email'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Quick Problem Preview */}
+              <div className="space-y-2">
+                <p className="text-[#9A8E80] text-xs uppercase tracking-wider">Problemas detectados</p>
+                {result.problems.map((p: any, i: number) => {
+                  const sev = severityBadge(p.severity || 'important');
+                  return (
+                    <div key={i} className="rounded-xl p-3 border border-[#2A2520] flex items-center gap-3" style={{ background: '#0F0D0B' }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold" style={{ background: sev.bg, color: sev.color }}>{i + 1}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[#E2D9CC] text-sm font-semibold truncate">{p.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-bold" style={{ background: sev.bg, color: sev.color }}>{sev.label}</span>
+                          <span className="text-xs" style={{ color: OLIVE_LIGHT }}>+{p.impactPercent}% mejora</span>
+                        </div>
+                      </div>
+                      <div className="w-12 h-12 shrink-0 relative">
+                        <svg width="48" height="48" className="-rotate-90">
+                          <circle cx="24" cy="24" r="18" fill="none" stroke="#2A2520" strokeWidth="4" />
+                          <circle cx="24" cy="24" r="18" fill="none" stroke={scoreColor(p.impactPercent)} strokeWidth="4" strokeDasharray={`${2 * Math.PI * 18}`} strokeDashoffset={`${2 * Math.PI * 18 * (1 - p.impactPercent / 100)}`} strokeLinecap="round" />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold" style={{ color: scoreColor(p.impactPercent) }}>{p.impactPercent}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* CTA based on audit type */}
+              {!isComplete ? (
+                <div className="rounded-2xl p-5 border" style={{ background: `linear-gradient(135deg, ${OLIVE}18, ${OLIVE_LIGHT}08)`, borderColor: `${OLIVE}50`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}15` }}>
+                  <p className="text-[#E2D9CC] font-bold mb-1">¿Quieres las soluciones completas?</p>
+                  <p className="text-[#9A8E80] text-xs mb-3">Incluye: soluciones paso a paso, plan de 4 semanas, campañas personalizadas y las 6 respuestas de beneficio.</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="font-bold mr-1">B</span>Pagar $9.99 con Binance</Button>
+                    </a>
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Otro%20m%C3%A9todo%20de%20pago" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-1" />Otro método de pago</Button>
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl p-5 border" style={{ background: `linear-gradient(135deg, ${OLIVE}18, ${OLIVE_LIGHT}08)`, borderColor: `${OLIVE}50`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}15` }}>
+                  <p className="text-[#E2D9CC] font-bold mb-1">¿Quieres que lo implementemos?</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="font-bold mr-1">B</span>Binance</Button>
+                    </a>
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-1" />Agenda llamada GRATIS</Button>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── PROBLEMS TAB ─── */}
+          {activeTab === 'problems' && (
+            <div className="space-y-4">
+              {result.problems.map((p: any, i: number) => {
+                const sev = severityBadge(p.severity || 'important');
+                return (
+                  <div key={i} className="rounded-2xl border overflow-hidden" style={{ borderColor: `${scoreColor(p.impactPercent)}25` }}>
+                    {/* Problem header */}
+                    <div className="px-4 py-3 flex items-center gap-3" style={{ background: `linear-gradient(135deg, ${scoreColor(p.impactPercent)}08, transparent)` }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: sev.bg, color: sev.color }}>{i + 1}</div>
+                      <div className="flex-1">
+                        <h4 className="text-[#E2D9CC] text-sm font-bold">{p.title}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-bold" style={{ background: sev.bg, color: sev.color }}>{sev.label}</span>
+                          <span className="text-xs" style={{ color: OLIVE_LIGHT }}>Mejora: hasta {p.impactPercent}%</span>
+                          {p.area && <span className="text-[9px] text-[#9A8E80] uppercase">{p.area}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-4 pb-4 space-y-3">
+                      {/* Before/After comparison */}
+                      {p.beforeScenario && p.afterScenario && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="rounded-xl p-3 border" style={{ background: 'rgba(220,38,38,0.05)', borderColor: 'rgba(220,38,38,0.2)' }}>
+                            <p className="text-[9px] uppercase tracking-wider text-red-400 font-bold mb-1">Ahora</p>
+                            <p className="text-[#9A8E80] text-xs leading-relaxed">{p.beforeScenario}</p>
+                          </div>
+                          <div className="rounded-xl p-3 border" style={{ background: `${OLIVE}08`, borderColor: `${OLIVE}30` }}>
+                            <p className="text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: OLIVE_LIGHT }}>Después</p>
+                            <p className="text-[#9A8E80] text-xs leading-relaxed">{p.afterScenario}</p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Description */}
+                      <p className="text-[#9A8E80] text-xs leading-relaxed">{p.description}</p>
+                      {/* Solution (only for complete) */}
+                      {isComplete && p.solution && (
+                        <div className="rounded-xl p-3 border" style={{ background: `${OLIVE}06`, borderColor: `${OLIVE}20` }}>
+                          <p className="text-[#E2D9CC] text-xs font-bold mb-1">Solución:</p>
+                          <p className="text-[#9A8E80] text-xs mb-2">{p.solution}</p>
+                          {p.steps && (
+                            <ol className="space-y-1">
+                              {p.steps.map((s: string, j: number) => (
+                                <li key={j} className="flex items-start gap-2 text-xs text-[#9A8E80]">
+                                  <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[9px] font-bold" style={{ background: `${OLIVE}15`, color: OLIVE_LIGHT }}>{j + 1}</span>
+                                  {s}
+                                </li>
+                              ))}
+                            </ol>
+                          )}
+                          {p.timeEstimate && <p className="text-[9px] text-[#9A8E80] mt-2 flex items-center gap-1"><Clock className="w-3 h-3" />{p.timeEstimate}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {!isComplete && (
+                <div className="rounded-2xl p-5 border text-center" style={{ background: `linear-gradient(135deg, ${OLIVE}12, ${OLIVE_LIGHT}06)`, borderColor: `${OLIVE}40` }}>
+                  <p className="text-[#E2D9CC] font-bold text-sm mb-1">Las soluciones completas están en la Auditoría $9.99</p>
+                  <p className="text-[#9A8E80] text-xs mb-3">Incluye pasos detallados, plan de 4 semanas y campañas personalizadas.</p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="font-bold mr-1">B</span>$9.99 Binance</Button>
+                    </a>
+                    <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99" target="_blank" rel="noopener noreferrer">
+                      <Button className="font-semibold text-white rounded-xl h-10 text-xs" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-1" />WhatsApp</Button>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── BENEFITS TAB ─── */}
+          {activeTab === 'benefits' && (
+            <div className="space-y-3">
+              <p className="text-[#9A8E80] text-xs mb-2">Lo que resuelve tu auditoría — respuestas claras para tu negocio.</p>
+              {benefitCards.filter(b => b.text).map((b, i) => (
+                <div key={i} className="rounded-xl p-4 border flex items-start gap-3" style={{ background: '#0F0D0B', borderColor: `${OLIVE}20` }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${OLIVE}15`, color: OLIVE_LIGHT }}>{b.icon}</div>
+                  <div>
+                    <h4 className="text-[#E2D9CC] text-sm font-bold mb-1">{b.title}</h4>
+                    <p className="text-[#9A8E80] text-xs leading-relaxed">{b.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ─── PLAN TAB (complete only) ─── */}
+          {activeTab === 'plan' && isComplete && result.planAction && (
+            <div className="space-y-3">
+              <p className="text-[#9A8E80] text-xs mb-2">Tu plan de acción personalizado — 4 semanas para transformar tu negocio.</p>
+              {[
+                { label: 'Semana 1', items: result.planAction.semana1, color: OLIVE_LIGHT },
+                { label: 'Semana 2', items: result.planAction.semana2, color: OLIVE },
+                { label: 'Semana 3', items: result.planAction.semana3, color: '#D4A843' },
+                { label: 'Semana 4', items: result.planAction.semana4, color: '#E2D9CC' },
+              ].map((week, i) => (
+                <div key={i} className="rounded-xl border overflow-hidden" style={{ borderColor: `${week.color}25` }}>
+                  <div className="px-4 py-2 flex items-center gap-2" style={{ background: `${week.color}10` }}>
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style={{ background: week.color }}>{i + 1}</div>
+                    <span className="text-xs font-bold" style={{ color: week.color }}>{week.label}</span>
+                  </div>
+                  <div className="px-4 py-3 space-y-1.5">
+                    {week.items?.map((item: string, j: number) => (
+                      <div key={j} className="flex items-start gap-2 text-xs text-[#9A8E80]">
+                        <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: week.color }} />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Ad Budget Summary */}
+              {result.adBudget && (
+                <div className="rounded-xl p-4 border" style={{ background: `${OLIVE}06`, borderColor: `${OLIVE}25` }}>
+                  <p className="text-[#E2D9CC] text-xs font-bold mb-2 flex items-center gap-1"><Megaphone className="w-3.5 h-3.5" style={{ color: OLIVE_LIGHT }} />Presupuesto Publicitario</p>
+                  <p className="text-[#9A8E80] text-xs mb-1">{result.adBudget.dailyBudgetPercent}</p>
+                  <p className="text-[#9A8E80] text-[10px]">{result.adBudget.dailyBudgetCalc}</p>
+                  {result.adBudget.campaignSet1 && result.adBudget.campaignSet2 && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="rounded-lg p-2 border" style={{ borderColor: `${OLIVE}20` }}>
+                        <p className="text-[9px] text-[#9A8E80] uppercase font-bold mb-0.5">Conjunto 1</p>
+                        <p className="text-[10px] text-[#E2D9CC]">{result.adBudget.campaignSet1.objective}</p>
+                        <p className="text-[10px]" style={{ color: OLIVE_LIGHT }}>{result.adBudget.campaignSet1.budget}</p>
+                      </div>
+                      <div className="rounded-lg p-2 border" style={{ borderColor: `${OLIVE}20` }}>
+                        <p className="text-[9px] text-[#9A8E80] uppercase font-bold mb-0.5">Conjunto 2</p>
+                        <p className="text-[10px] text-[#E2D9CC]">{result.adBudget.campaignSet2.objective}</p>
+                        <p className="text-[10px]" style={{ color: OLIVE_LIGHT }}>{result.adBudget.campaignSet2.budget}</p>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
-        {result.auditType === 'free' ? (
-          <div className="rounded-2xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}60`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}20` }}>
-            <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres las soluciones completas?</p>
-            <p className="text-[#9A8E80] text-sm mb-4">Incluye: soluciones paso a paso, plan de 4 semanas, campañas personalizadas y presupuesto publicitario.</p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Pagar $9.99 con Binance</Button>
-              </a>
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20la%20auditor%C3%ADa%20completa%20de%20%249.99%20%E2%80%94%20Otro%20m%C3%A9todo%20de%20pago" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Otro método de pago</Button>
-              </a>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-2xl p-6 border mb-6" style={{ background: `linear-gradient(135deg, ${OLIVE}20, ${OLIVE_LIGHT}10)`, borderColor: `${OLIVE}60`, boxShadow: `inset 0 0 30px ${OLIVE_GLOW}20` }}>
-            <p className="text-[#E2D9CC] font-semibold mb-2">¿Quieres que lo implementemos?</p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones%20%E2%80%94%20Pago%20Binance" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: '#F0B90B', color: '#000', boxShadow: '0 0 10px rgba(240,185,11,0.3)' }}><span className="text-sm font-bold mr-1">B</span>Binance</Button>
-              </a>
-              <a href="https://wa.me/584221754245?text=Hola%20Daniela%2C%20quiero%20implementar%20las%20soluciones" target="_blank" rel="noopener noreferrer">
-                <Button className="font-semibold text-white rounded-2xl h-11" style={{ background: OLIVE, boxShadow: NEON_SHADOW_BTN }}><WhatsAppIcon className="w-4 h-4 mr-2" />Agenda llamada GRATIS</Button>
-              </a>
-            </div>
-          </div>
-        )}
-        {result.auditType === 'complete' && result.reportMarkdown && (
-          <div>
-            <button onClick={() => setShowFull(!showFull)} className="text-sm flex items-center gap-1 hover:underline" style={{ color: OLIVE_LIGHT }}>
-              {showFull ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showFull ? 'Ocultar' : 'Ver'} reporte completo
-            </button>
-            {showFull && <div className="mt-4 bg-[#0F0D0B] rounded-2xl p-4 border border-[#2A2520] text-sm text-[#9A8E80] max-h-96 overflow-y-auto whitespace-pre-wrap">{result.reportMarkdown}</div>}
-          </div>
-        )}
-        <p className="text-[#9A8E80] text-xs mt-6 border-t border-[#2A2520] pt-4 text-center">Esta auditoría es un diagnóstico orientativo. Los porcentajes son estimaciones de potencial, no garantías de resultados.</p>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-[#2A2520] text-center">
+          <p className="text-[#9A8E80] text-[10px]">Esta auditoría es un diagnóstico orientativo. Los porcentajes son estimaciones de potencial, no garantías de resultados.</p>
+        </div>
       </motion.div>
     </motion.div>
   );
