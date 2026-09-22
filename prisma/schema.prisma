@@ -72,3 +72,24 @@ model AuditResult {
   fullReport      String   // Full markdown report
   createdAt       DateTime @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// PWA de pedidos (public/pedidos) — almacén de documentos sincronizados.
+// Espejo 1:1 de los stores de IndexedDB del cliente: products, sellers, orders.
+// `data` guarda el documento JSON completo; las demás columnas son índices.
+// ---------------------------------------------------------------------------
+model DistDoc {
+  kind      String   // "products" | "sellers" | "orders"
+  id        String
+  data      String   // JSON del documento
+  sellerId  String?  // solo pedidos: filtra la bajada por vendedor
+  routeDate String?  // solo pedidos: YYYY-MM-DD
+  status    String?  // solo pedidos: abierto | enviado | despachado
+  deleted   Boolean  @default(false)
+  updatedAt String   // updatedAt del cliente (ISO) → last-write-wins
+  syncedAt  DateTime @default(now()) @updatedAt // cursor de sincronización
+
+  @@id([kind, id])
+  @@index([kind, syncedAt])
+  @@index([kind, sellerId, routeDate])
+}
