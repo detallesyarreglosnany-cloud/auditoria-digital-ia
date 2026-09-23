@@ -346,6 +346,22 @@ table.grid tr.ini-row th { background: #1c0508; color: var(--accent); font: 700 
 .status-sel.locked { border-color: var(--line); }
 .st-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
 
+.suggest { display: grid; gap: 4px; margin-top: 6px; max-height: 50vh; overflow: auto; }
+.suggest:empty { display: none; }
+.sug-item { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--ink); display: grid; }
+.sug-item small { color: var(--muted); font-size: 12px; }
+.sug-item:hover, .sug-item:focus { border-color: var(--brand-2); }
+.sug-item.new { border-style: dashed; color: var(--accent); font-weight: 700; }
+.bell { position: relative; background: rgba(0,0,0,.28); border: 0; border-radius: 999px; width: 40px; height: 40px; font-size: 18px; color: #fff; }
+.bell.ring { animation: ring 1.2s ease-in-out 2; }
+@keyframes ring { 0%,100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } }
+.bell-n { position: absolute; top: -4px; right: -4px; background: var(--accent); color: #1a1200; font: 800 11px var(--font); border-radius: 999px; padding: 1px 6px; }
+.notif-list { display: grid; gap: 6px; margin-top: 10px; }
+.notif { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
+.notif.unread { border-color: var(--brand-2); }
+.notif.warn { border-left: 4px solid var(--warn); }
+.notif small { display: block; color: var(--muted); font-size: 11px; }
+
 .credit { text-align: center; font-size: 11px; color: #6f686b; padding: 18px 16px 24px; letter-spacing: .02em; }
 .login .credit { padding: 4px 0 0; }
 .order-grid { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 16px; }

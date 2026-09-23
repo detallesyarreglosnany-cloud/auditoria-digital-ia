@@ -152,6 +152,28 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          // Alerta de cliente duplicado el mismo día (mismo u otro vendedor): no bloquea
+          if (kind === 'orders' && doc.routeDate) {
+            const key = (o: Record<string, unknown>) => String(o.clientId || o.clientKey || '');
+            const d = doc as Record<string, unknown>;
+            const same = (await tx.distDoc.findMany({ where: { kind: 'orders', routeDate: String(doc.routeDate), deleted: false } }))
+              .filter((r) => r.id !== doc.id).map((r) => ({ row: r, o: parseDoc(r.data) as Record<string, unknown> }))
+              .filter(({ o }) => !o.deleted && key(o) && (key(o) === key(d) || (o.clientKey && o.clientKey === d.clientKey)));
+            const dup = doc.deleted ? [] : same.map(({ o }) => ({ id: String(o.id), sellerName: String(o.sellerName || '') }));
+            if (JSON.stringify(dup) !== JSON.stringify(d.dupWith || [])) {
+              d.dupWith = dup;
+              if (!isAdmin || existing) doc.updatedAt = serverTime.toISOString(); // que el teléfono baje la alerta
+            }
+            // Marcar también los otros pedidos del mismo cliente
+            for (const { row, o } of same) {
+              const list = ((o.dupWith as { id: string }[]) || []).filter((x) => x.id !== doc.id);
+              if (!doc.deleted) list.push({ id: doc.id, sellerName: String(d.sellerName || '') } as { id: string });
+              if (JSON.stringify(list) !== JSON.stringify(o.dupWith || [])) {
+                const upd = { ...o, dupWith: list, updatedAt: serverTime.toISOString() };
+                await tx.distDoc.update({ where: { kind_id: { kind: 'orders', id: row.id } }, data: { data: JSON.stringify(upd), updatedAt: upd.updatedAt } });
+              }
+            }
+          }
           const data = JSON.stringify(doc);
           const cols = {
             data,

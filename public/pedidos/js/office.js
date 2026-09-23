@@ -25,7 +25,40 @@
   const byIdMap = (arr) => new Map(arr.map((x) => [x.id, x]));
 
   /* ============================== Shell ============================== */
+  /* ------------------------- PIN de oficina ------------------------- */
+  const LOCK_MIN = 15; // bloqueo automático por inactividad (minutos)
+  async function pinHash(pin) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('pv-oficina:' + pin));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  const unlockedAt = () => { try { return +sessionStorage.getItem('pvUnlock') || 0; } catch (e) { return 0; } };
+  const touchUnlock = () => { try { sessionStorage.setItem('pvUnlock', String(Date.now())); } catch (e) { /* noop */ } };
+  const lockOffice = () => { try { sessionStorage.removeItem('pvUnlock'); } catch (e) { /* noop */ } };
+  const isLocked = () => !!S.officePin && Date.now() - unlockedAt() > LOCK_MIN * 60000;
+  ['click', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { if (location.hash.startsWith('#/oficina') && !isLocked()) touchUnlock(); }, true));
+  setInterval(() => { if (location.hash.startsWith('#/oficina') && isLocked() && !document.getElementById('pinForm')) PV.render(); }, 30000);
+
+  function renderLock() {
+    document.getElementById('app').innerHTML = `
+      <section class="login"><img class="login-logo" src="./icons/logo-white.png" alt="Puerto Venado">
+        <form class="card login-card" id="pinForm" autocomplete="off">
+          <h2 style="margin:0 0 10px">🔒 Oficina bloqueada</h2>
+          <label class="field"><span>PIN de oficina</span><input id="pinIn" class="input" type="password" inputmode="numeric" maxlength="12" autofocus></label>
+          <button class="btn btn-primary btn-block" style="margin-top:12px">Entrar</button>
+          <a class="btn btn-block" href="#/" style="margin-top:10px">← Volver</a>
+        </form>${PV.creditFooter()}</section>`;
+    let fails = 0;
+    $('#pinForm').onsubmit = async (e) => {
+      e.preventDefault();
+      if (fails >= 5) { toast('Demasiados intentos. Espera un minuto.', 'err'); return; }
+      if (await pinHash($('#pinIn').value) === S.officePin) { touchUnlock(); PV.render(); }
+      else { fails++; if (fails >= 5) setTimeout(() => { fails = 0; }, 60000); toast('PIN incorrecto', 'err'); $('#pinIn').value = ''; }
+    };
+  }
+
   PV.renderOffice = function (tab) {
+    if (isLocked()) return renderLock();
+    touchUnlock();
     if (!TABS.some(([k]) => k === tab)) tab = 'cargas';
     Object.assign(S.ui.office, { date: U().date || today(), mode: U().mode || 'bultos' });
     autoPack();
@@ -33,12 +66,14 @@
     const waiting = S.loads.filter((l) => !l.deleted && !Loads.isClosed(l)).length;
     app.innerHTML = `
       ${PV.brandHeader('Hola, ' + (S.config.adminName || 'administrador'), 'Oficina · Puerto Venado',
-        `<button id="syncPill" class="pill" type="button"></button><a class="btn btn-sm" href="#/">Salir</a>`)}
+        `<button id="bell" class="bell" type="button" aria-label="Notificaciones">🔔</button><button id="syncPill" class="pill" type="button"></button><a class="btn btn-sm" href="#/" id="offOut">Salir</a>`)}
       <nav class="tabs">${TABS.map(([k, l]) => `<a class="tab ${k === tab ? 'active' : ''}" href="#/oficina/${k}">${l}${k === 'cargas' && waiting ? ` <span class="count">${waiting}</span>` : ''}</a>`).join('')}</nav>
       <div class="container" id="officeBody"></div>
       ${PV.creditFooter()}`;
     $('#syncPill').onclick = () => PV.runSync(true);
-    PV.updateSyncPill();
+    $('#offOut').onclick = () => lockOffice();
+    $('#bell').onclick = notifSheet;
+    PV.updateSyncPill(); PV.updateBell();
     const body = $('#officeBody');
     if (!S.products.length && tab !== 'ajustes') body.insertAdjacentHTML('beforebegin', setupBanner());
     ({ cargas: renderLoads, pedidos: renderOrders, archivo: renderArchive, inventario: renderInventory,
@@ -46,6 +81,36 @@
     const sb = $('#setupImport');
     if (sb) sb.onclick = importStarter;
   };
+
+  function notifSheet() {
+    const list = S.notifs || [];
+    const sh = openSheet(`<div class="row"><h2 class="grow">🔔 Notificaciones</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      ${'Notification' in window && Notification.permission !== 'granted' ? '<button class="btn btn-sm" id="nPerm">Activar avisos del sistema (aunque la pestaña esté en segundo plano)</button>' : ''}
+      ${list.length ? `<div class="notif-list">${list.map((n) => `<div class="notif ${n.read ? '' : 'unread'} ${n.warn ? 'warn' : ''}"><span>${n.icon}</span><div class="grow">${esc(n.msg)}<small>${esc(new Date(n.at).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }))}</small></div></div>`).join('')}</div>
+        <div class="actions"><button class="btn" id="nClear">Borrar todo</button></div>` : '<p class="muted">Sin notificaciones. Aquí verás pedidos nuevos, pedidos modificados por los vendedores y clientes duplicados.</p>'}`);
+    PV.beep(); // habilita el audio del navegador tras un clic
+    S.notifs = list.map((n) => ({ ...n, read: true })); DB.setMeta('notifs', S.notifs); PV.updateBell();
+    const np = $('#nPerm', sh.el); if (np) np.onclick = () => Notification.requestPermission().then(() => sh.close());
+    const nc = $('#nClear', sh.el); if (nc) nc.onclick = () => { S.notifs = []; DB.setMeta('notifs', []); sh.close(); PV.updateBell(); };
+  }
+
+  /** Pedidos del mismo cliente el mismo día (mismo u otro vendedor): alerta, no bloquea. */
+  function dupIndex() {
+    // Mismo cliente = mismo ID de cartera o mismo nombre normalizado (cliente creado "nuevo" por error)
+    const g = new Map();
+    const add = (k, o) => { if (k) g.set(k, (g.get(k) || []).concat(o)); };
+    S.orders.filter((o) => !o.deleted && Matrix.orderTotals(o).items).forEach((o) => {
+      add(o.routeDate + '|id|' + (o.clientId || ''), o);
+      add(o.routeDate + '|nm|' + (o.clientKey || ''), o);
+    });
+    const out = new Map();
+    g.forEach((arr, k) => {
+      if (arr.length < 2 || /\|(id|nm)\|$/.test(k)) return;
+      arr.forEach((o) => { const cur = out.get(o.id) || []; arr.forEach((x) => { if (x.id !== o.id && !cur.includes(x)) cur.push(x); }); out.set(o.id, cur); });
+    });
+    return out;
+  }
+  const dupBadge = (o, idx) => { const d = idx.get(o.id); return d ? ` <span class="status over" title="También con: ${esc(d.map((x) => x.sellerName).join(', '))}">⚠ duplicado · ${esc(d.map((x) => Loads.initials(x.sellerName)).join(' '))}</span>` : ''; };
 
   function setupBanner() {
     return `<div class="container"><div class="hint warn setup">
@@ -122,7 +187,7 @@
       <div class="section-title">⏸ Clientes en espera (no se pierde el pedido)</div>
       ${held.length ? `<div class="card"><table class="inv">${held.map((o) => {
         const t = Matrix.orderTotals(o);
-        return `<tr><td><b>${esc(o.clientName)}</b><div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')} · ${esc(fmtDate(o.routeDate))}</div></td>
+        return `<tr><td><b>${esc(o.clientName)}</b>${dupBadge(o, dupIndex())}<div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')} · ${esc(fmtDate(o.routeDate))}</div></td>
           <td class="n">${t.bultos} bultos</td><td class="n">${usd(t.monto)}</td>
           <td style="white-space:nowrap"><button class="btn btn-sm" data-edit="${esc(o.id)}">Editar</button>
             <button class="btn btn-sm" data-move="${esc(o.id)}">⇄ A una hoja</button>
@@ -230,6 +295,7 @@
     }).join('');
     const foot = m.footer.map((f) => `<tr><td class="sticky-col">${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="n">${nf0.format(v)}</td>`).join('')}<td class="n tot">${nf0.format(f.total)}</td></tr>`).join('');
     const totalUSD = os.reduce((a, o) => a + Matrix.orderTotals(o).monto, 0);
+    const dups = dupIndex();
     const initialsRow = `<tr class="ini-row"><th class="sticky-col">Vendedor →</th><th></th>${m.cols.map((c) => `<th>${esc(Loads.initials(c.order.sellerName))}</th>`).join('')}<th class="tot"></th></tr>`;
 
     root.innerHTML = `
@@ -257,8 +323,9 @@
       <div class="toolbar no-print">
         ${editableLoad ? `<button class="btn ${edit ? 'btn-accent' : ''}" id="dEdit">${edit ? '✓ Terminar edición' : '✎ Editar cantidades'}</button>
           <button class="btn" id="dMerge">⇄ Fusionar con otra hoja</button>` : ''}
-        <button class="btn" id="dPrint">🖨 Hoja de carga</button>
-        <button class="btn" id="dNotes">🧾 Notas de entrega</button>
+        <button class="btn" id="dPrint" title="En la ventana de impresión elige tu impresora o «Guardar como PDF»">🖨 Imprimir / PDF hoja</button>
+        <button class="btn" id="dNotes" title="Original + copia por cliente">🧾 Notas: imprimir / PDF</button>
+        <button class="btn" id="dCsv">⇩ Descargar Excel</button>
         <button class="btn" id="dCopy">📋 Copiar para Excel</button>
         ${editableLoad && !os.length ? '<button class="btn btn-danger" id="dDel">Eliminar hoja vacía</button>' : ''}
       </div>
@@ -272,7 +339,7 @@
         <tbody>${os.map((o, i) => { const t = Matrix.orderTotals(o); return `<tr>
           <td>${i + 1}</td>
           <td style="white-space:nowrap">${editableLoad ? `<button class="btn btn-sm" data-left="${i}" ${i ? '' : 'disabled'} aria-label="Mover a la izquierda">←</button><button class="btn btn-sm" data-right="${i}" ${i < os.length - 1 ? '' : 'disabled'} aria-label="Mover a la derecha">→</button>` : ''}</td>
-          <td><b>${esc(o.clientName)}</b> <span class="muted">${esc(fmtDate(o.routeDate))}</span>
+          <td><b>${esc(o.clientName)}</b> <span class="muted">${esc(fmtDate(o.routeDate))}</span>${dupBadge(o, dups)}
             ${o.officeEdited ? ' <span class="status abierto">editado oficina</span>' : ''}${o.sellerEdited ? ' <span class="status en_espera">modificado por vendedor</span>' : ''}
             ${o.notes ? `<div class="muted">📝 ${esc(o.notes)}</div>` : ''}</td>
           <td><span class="tag">${esc(Loads.initials(o.sellerName))}</span></td>
@@ -293,6 +360,7 @@
       load: cur(), productRank: productRank(), statusName: stName(cur()) });
     $('#dPrint').onclick = () => Print.printLoadSheet(cur(), Loads.loadOrders(cur(), byIdMap(S.orders)), ctx());
     $('#dNotes').onclick = () => Print.printNotes(Loads.loadOrders(cur(), byIdMap(S.orders)), ctx());
+    $('#dCsv').onclick = () => saveFile(`hoja_${Loads.labelOf(cur())}_${cur().date || today()}.csv`, '\uFEFF' + Matrix.toDelimited(m, { sep: S.settings.csvSep, decimal: S.settings.csvDecimal }), 'text/csv;charset=utf-8');
     $('#dCopy').onclick = async () => {
       const ok = await copyText(Matrix.toDelimited(m, { sep: '\t', decimal: S.settings.csvDecimal }));
       toast(ok ? 'Hoja copiada: pégala en Excel' : 'No se pudo copiar', ok ? 'ok' : 'err');
@@ -459,6 +527,7 @@
       <h3>${esc(name)}</h3><div class="big num">${usd(st.monto)}</div>
       <div class="kpis"><span>${st.n} clientes</span>${st.abiertos ? `<span class="status abierto">${st.abiertos} abiertos</span>` : ''}</div></button>`; };
     const source = day.filter((o) => !sid || o.sellerId === sid);
+    const dupIdx = dupIndex();
     const m = Matrix.build(source, mode, { rubros: rubros(), productRank: productRank() });
     const money = mode === 'monto';
     root.innerHTML = `
@@ -478,7 +547,7 @@
           ${r.cells.map((v) => `<td class="n ${v ? '' : 'zero'}">${v ? (money ? nf2.format(v) : nf0.format(v)) : '·'}</td>`).join('')}<td class="n tot">${money ? nf2.format(r.total) : nf0.format(r.total)}</td></tr>`).join('')}</tbody>
         <tfoot>${m.footer.map((f) => `<tr><td class="sticky-col">${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="n">${f.money ? nf2.format(v) : nf0.format(v)}</td>`).join('')}<td class="n tot">${f.money ? nf2.format(f.total) : nf0.format(f.total)}</td></tr>`).join('')}</tfoot></table></div>
         <div class="section-title">Detalle por cliente</div>
-        <div class="card"><table class="inv">${source.map((o) => `<tr><td><b>${esc(o.clientName)}</b><div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')}</div></td>
+        <div class="card"><table class="inv">${source.map((o) => `<tr><td><b>${esc(o.clientName)}</b>${dupBadge(o, dupIdx)}<div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')}</div></td>
           <td><span class="status ${o.status}">${esc(Loads.orderLabel(o))}</span></td><td class="n">${usd(Matrix.orderTotals(o).monto)}</td>
           <td><button class="btn btn-sm" data-edit="${esc(o.id)}">Ver / editar</button></td></tr>`).join('')}</table></div>`
       : `<div class="empty card"><strong>Sin pedidos</strong>No hay pedidos para ${esc(fmtDate(date))}.</div>`}`;
@@ -1053,6 +1122,16 @@
           </div>
           <div class="row" style="margin-top:12px"><button class="btn btn-primary" id="adSave">Guardar</button></div></section>
 
+        <section class="card card-pad"><h3>🔒 Seguridad de la oficina</h3>
+          <p class="muted">Con PIN, la oficina se bloquea al salir y tras ${LOCK_MIN} minutos sin uso. Es por equipo: configúralo en cada PC de oficina.</p>
+          <div class="grid3">
+            ${S.officePin ? '<label class="field"><span>PIN actual</span><input id="pinCur" class="input" type="password" inputmode="numeric" maxlength="12"></label>' : ''}
+            <label class="field"><span>${S.officePin ? 'PIN nuevo' : 'Crear PIN (4 a 12 dígitos)'}</span><input id="pinNew" class="input" type="password" inputmode="numeric" maxlength="12"></label>
+            <label class="field"><span>Repetir PIN</span><input id="pinNew2" class="input" type="password" inputmode="numeric" maxlength="12"></label>
+          </div>
+          <div class="row wrap" style="margin-top:12px"><button class="btn btn-primary" id="pinSave">${S.officePin ? 'Cambiar PIN' : 'Activar PIN'}</button>
+            ${S.officePin ? '<button class="btn btn-danger" id="pinDel">Quitar PIN</button><button class="btn" id="pinLock">🔒 Bloquear ahora</button>' : ''}</div></section>
+
         <section class="card card-pad"><h3>Empresa (aparece en hojas y notas)</h3>
           <div class="grid2">
             <label class="field"><span>Razón social</span><input id="coName" class="input" value="${esc(c.company.name)}"></label>
@@ -1119,6 +1198,20 @@
       const prev = S.config.dispatchers || [];
       return saveCfg({ dispatchers: names.map((n) => prev.find((d) => d.name === n) || { id: DB.uid('d'), name: n }) });
     });
+    const pinOk = async () => !S.officePin || (await pinHash(($('#pinCur') || {}).value || '')) === S.officePin;
+    $('#pinSave').onclick = async () => {
+      const a = $('#pinNew').value, b = $('#pinNew2').value;
+      if (!(await pinOk())) return toast('PIN actual incorrecto', 'err');
+      if (!/^\d{4,12}$/.test(a)) return toast('El PIN debe tener de 4 a 12 dígitos', 'err');
+      if (a !== b) return toast('Los PIN no coinciden', 'err');
+      S.officePin = await pinHash(a); await DB.setMeta('officePin', S.officePin); touchUnlock();
+      toast('PIN activado', 'ok'); renderSettings(root);
+    };
+    const pd = $('#pinDel'); if (pd) pd.onclick = async () => {
+      if (!(await pinOk())) return toast('Escribe el PIN actual para quitarlo', 'err');
+      S.officePin = ''; await DB.setMeta('officePin', ''); toast('PIN eliminado'); renderSettings(root);
+    };
+    const pl = $('#pinLock'); if (pl) pl.onclick = () => { lockOffice(); PV.render(); };
     $('#adSave').onclick = () => saveCfg({ adminName: $('#adName').value.trim(), footer: $('#adFooter').value.trim() });
     $('#coSave').onclick = () => saveCfg({
       company: { ...S.config.company, name: $('#coName').value.trim(), rif: $('#coRif').value.trim(), phone: $('#coPhone').value.trim(), address: $('#coAddr').value.trim() },

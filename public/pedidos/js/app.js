@@ -131,6 +131,8 @@
     S.config = all[5].find((c) => c.id === 'main') || Seed.defaultConfig();
     S.settings = { ...DEFAULT_SETTINGS, ...(await DB.getMeta('settings', {})) };
     S.session = await DB.getMeta('session', null);
+    S.notifs = await DB.getMeta('notifs', []);
+    S.officePin = await DB.getMeta('officePin', '');
   }
   const byId = (arr, id) => arr.find((x) => x.id === id);
   const productById = (id) => byId(S.products, id);
@@ -180,7 +182,12 @@
     const scope = isOffice() ? {} : (S.session && S.session.sellerId ? { sellerId: S.session.sellerId } : {});
     const r = await Sync.syncNow(scope);
     lastSyncResult = r;
-    if (r.ok && r.pulled) { await loadAll(); refreshAfterRemote(); }
+    if (r.ok && r.pulled) {
+      const before = new Map(S.orders.map((o) => [o.id, o]));
+      await loadAll();
+      await detectNotifs(before);
+      refreshAfterRemote();
+    }
     if (manual) {
       if (r.ok) toast('Sincronizado · ↑' + r.pushed + ' ↓' + r.pulled + (r.rejected ? ' · ' + r.rejected + ' ya en manos de la oficina' : ''), 'ok');
       else if (r.offline) toast('Sin internet: todo queda guardado en el equipo', 'err');
@@ -201,6 +208,46 @@
     el.innerHTML = '<span class="dot"></span>' + (!online ? 'Sin señal' : serverDown ? 'Sin servidor' : 'En línea') +
       (pending ? ' · ' + pending : '');
     el.title = lastSyncResult && lastSyncResult.error ? lastSyncResult.error : 'Tocar para sincronizar';
+  }
+
+  /* ===================== Notificaciones (oficina) ===================== */
+  let audioCtx = null;
+  function beep() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      [880, 1320].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.frequency.value = f; o.type = 'sine';
+        g.gain.setValueAtTime(0.0001, audioCtx.currentTime + i * 0.16);
+        g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + i * 0.16 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + i * 0.16 + 0.15);
+        o.connect(g).connect(audioCtx.destination); o.start(audioCtx.currentTime + i * 0.16); o.stop(audioCtx.currentTime + i * 0.16 + 0.16);
+      });
+    } catch (e) { /* sin audio */ }
+  }
+  /** Compara antes/después de un sync y avisa: pedido nuevo, modificado por vendedor, cliente duplicado. */
+  async function detectNotifs(before) {
+    if (!isOffice() || !before.size) return;
+    const out = [];
+    S.orders.forEach((o) => {
+      const p = before.get(o.id), who = o.sellerName;
+      if (o.status === 'enviado' && (!p || p.status !== 'enviado')) out.push({ icon: '🧾', msg: `Nuevo pedido de ${who}: ${o.clientName}` });
+      else if (o.sellerEdited && (!p || p.sellerEdited !== o.sellerEdited)) out.push({ icon: '✏️', msg: `${who} modificó el pedido de ${o.clientName}` });
+      if ((o.dupWith || []).length && !(p && (p.dupWith || []).length)) out.push({ icon: '⚠️', warn: true, msg: `Cliente duplicado: ${o.clientName} (${who} y ${o.dupWith.map((d) => d.sellerName).join(', ')})` });
+    });
+    if (!out.length) return;
+    const at = new Date().toISOString();
+    S.notifs = out.map((n) => ({ ...n, at, read: false })).concat(S.notifs || []).slice(0, 80);
+    await DB.setMeta('notifs', S.notifs);
+    beep();
+    try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('Puerto Venado', { body: out.map((n) => n.msg).join('\n'), icon: './icons/icon-192.png' }); } catch (e) { /* noop */ }
+    updateBell();
+  }
+  function updateBell() {
+    const b = $('#bell'); if (!b) return;
+    const n = (S.notifs || []).filter((x) => !x.read).length;
+    b.innerHTML = '🔔' + (n ? `<span class="bell-n">${n > 99 ? '99+' : n}</span>` : '');
+    b.classList.toggle('ring', n > 0);
   }
 
   let deferredRender = false;
@@ -403,12 +450,12 @@
           ${routes.length > 1 ? `<select id="routeSel" class="select route-sel" aria-label="Ruta del día">
             ${routes.map((r) => `<option ${r === S.session.route ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>` : ''}
           <form id="clientForm" class="row grow" autocomplete="off">
-            <input id="clientInput" class="input grow" list="clientsDl" enterkeyhint="go"
+            <input id="clientInput" class="input grow" enterkeyhint="go" autocomplete="off"
                    placeholder="Cliente (${clients.length} en tu cartera)" aria-label="Nombre del cliente" maxlength="80">
             <button class="btn btn-primary" type="submit" aria-label="Abrir cliente">＋</button>
           </form>
         </div>
-        <datalist id="clientsDl">${clients.map((c) => `<option value="${esc(c.name)}">${esc([c.rif, c.address].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>
+        <div id="clientSug" class="suggest" role="listbox" aria-label="Clientes que coinciden"></div>
         <div class="chips" id="clientChips" role="tablist" aria-label="Clientes de hoy">
           ${orders.length ? orders.map((x) => {
             const t = Matrix.orderTotals(x);
@@ -435,10 +482,21 @@
     const rs = $('#routeSel');
     if (rs) rs.onchange = async () => { await setSession({ ...S.session, route: rs.value }); renderSeller(); };
     $('#clientForm').onsubmit = (e) => { e.preventDefault(); openClient($('#clientInput').value); };
-    $('#clientInput').addEventListener('change', (e) => {
-      // Elegir una opción de la lista abre el cliente de una vez
-      if (clients.some((c) => c.name === e.target.value)) openClient(e.target.value);
+    // Buscador: desde 2 letras muestra coincidencias de la cartera (nombre, RIF,
+    // dirección o teléfono); si no aparece, se escribe y se crea como nuevo.
+    const sug = $('#clientSug');
+    $('#clientInput').addEventListener('input', (e) => {
+      const q = norm(e.target.value);
+      if (q.length < 2) { sug.innerHTML = ''; return; }
+      const tokens = q.split(' ').filter(Boolean);
+      const clean = (x) => norm(x).replace(/^[^a-z0-9]+/, '');
+      const rank = (c) => (clean(c.name).startsWith(q) ? 0 : clean(c.name).split(' ').some((w) => w.startsWith(tokens[0])) ? 1 : 2);
+      const hits = clients.filter((c) => { const h = norm(c.name + ' ' + c.rif + ' ' + c.address + ' ' + c.phone); return tokens.every((t) => h.includes(t)); })
+        .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'es')).slice(0, 8);
+      sug.innerHTML = hits.map((c) => `<button type="button" class="sug-item" data-name="${esc(c.name)}"><b>${esc(c.name)}</b><small>${esc([c.rif, c.address].filter(Boolean).join(' · '))}</small></button>`).join('') +
+        `<button type="button" class="sug-item new" data-name="${esc(e.target.value.trim())}">＋ Usar «${esc(e.target.value.trim())}» como cliente nuevo</button>`;
     });
+    sug.onclick = (e) => { const b = e.target.closest('[data-name]'); if (b) { sug.innerHTML = ''; openClient(b.dataset.name); } };
     $('#clientChips').onclick = async (e) => {
       const b = e.target.closest('[data-oid]'); if (!b) return;
       await setSession({ ...S.session, activeOrderId: b.dataset.oid });
@@ -482,7 +540,8 @@
     let hint = '';
     if (!o) hint = `<div class="hint">👆 Primero escribe o elige el cliente. Las cantidades se cargan a ese cliente.</div>`;
     else if (!editable(o)) hint = `<div class="hint warn">🔒 Este pedido está <b>${esc(Loads.orderLabel(o))}</b>: la carga ya fue aprobada y no se puede modificar.</div>`;
-    else if (o.loadId) hint = `<div class="hint">✏️ Este pedido ya está en una hoja de carga (<b>${esc(Loads.orderLabel(o))}</b>). Aún puedes modificarlo; la oficina verá los cambios.</div>`;
+    if (o && o.dupWith && o.dupWith.length) hint += dupHint(o);
+    if (o && o.loadId && editable(o)) hint += `<div class="hint">✏️ Este pedido ya está en una hoja de carga (<b>${esc(Loads.orderLabel(o))}</b>). Aún puedes modificarlo; la oficina verá los cambios.</div>`;
     if (!S.products.length) {
       list.innerHTML = `<div class="empty"><strong>Catálogo vacío</strong>Toca ⟳ para sincronizar con la oficina.</div>`;
       return;
@@ -538,6 +597,11 @@
     if (chip) chip.innerHTML = `${esc(o.clientName)} <span class="badge">${usd(Matrix.orderTotals(o).monto)}</span>`;
   }
 
+  /** Alerta (no bloquea): el mismo cliente tiene otro pedido ese día (mismo u otro vendedor). */
+  function dupHint(o) {
+    return `<div class="hint warn">⚠ <b>Cliente posiblemente duplicado:</b> ${esc(o.clientName)} también tiene pedido hoy con ${o.dupWith.map((d) => esc(d.sellerName)).join(', ')}. Verifica que no sea un error.</div>`;
+  }
+
   function orderLinesHTML(o) {
     const lines = Object.values(o.lines).map((l) => ({ l, t: Matrix.lineTotals(l) }))
       .sort((a, b) => a.l.category.localeCompare(b.l.category, 'es') || a.l.name.localeCompare(b.l.name, 'es'));
@@ -561,6 +625,7 @@
         <div class="muted">${esc([client.rif, client.address].filter(Boolean).join(' · '))}</div>
         <div class="muted">${esc(fmtDate(o.routeDate))} · Ruta ${esc(o.route || '—')} · <span class="status ${o.status}">${esc(Loads.orderLabel(o))}</span></div></div>
         <button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      ${o.dupWith && o.dupWith.length ? dupHint(o) : ''}
       ${o.officeEdited ? '<div class="hint warn">La oficina ajustó cantidades de este pedido.</div>' : ''}
       ${orderLinesHTML(o)}
       <label class="field" style="margin-top:14px"><span>Nota para despacho</span>
@@ -661,7 +726,7 @@
   window.PV = {
     S, $, $$, esc, nf2, nf0, usd, bs, int, dec, norm, slug, today, fmtDate, fmtStock, hasStock, productSort, productLabel, rubroIcon,
     toast, openSheet, copyText, saveFile, pickFile, brandHeader, creditFooter,
-    loadAll, saveDocs, saveOrder, saveSettings, setSession, runSync, updateSyncPill, render,
+    loadAll, saveDocs, saveOrder, saveSettings, setSession, runSync, updateSyncPill, render, updateBell, beep,
     productById, sellerById, orderById, clientById, rubros, orderLinesHTML,
     boot,
   };
