@@ -32,7 +32,7 @@
       ['code', 'Código *', ['CODIGO', 'COD', 'CODIGO PRODUCTO', 'REFERENCIA', 'SKU', 'COD ARTICULO']],
       ['name', 'Nombre / descripción *', ['NOMBRE', 'DESCRIPCION', 'PRODUCTO', 'ARTICULO', 'DESCRIPCION PRODUCTO']],
       ['presentation', 'Presentación / gramaje', ['PRESENTACION', 'GRAMAJE', 'TAMANO', 'CONTENIDO', 'MEDIDA']],
-      ['category', 'Rubro / categoría', ['RUBRO', 'CATEGORIA', 'DEPARTAMENTO', 'LINEA', 'FAMILIA', 'GRUPO']],
+      ['category', 'Categoría (REF)', ['REF', 'RUBRO', 'CATEGORIA', 'DEPARTAMENTO', 'LINEA', 'FAMILIA', 'GRUPO']],
       ['brand', 'Marca', ['MARCA', 'FABRICANTE']],
       ['unitsPerBox', 'Unidades por caja', ['UND X CAJA', 'UNIDADES POR CAJA', 'UNID X CAJA', 'EMPAQUE', 'UNIDADES X BULTO', 'UND X BULTO', 'CAJA X', 'CONTENIDO CAJA', 'UNIDADES']],
       ['unitPrice', 'Precio unidad $', ['PRECIO UNIDAD', 'PRECIO UNITARIO', 'PRECIO DETAL', 'PRECIO UND', 'PRECIO']],
@@ -111,18 +111,43 @@
 
   /* ----------------------- Normalización de productos ----------------------- */
 
-  // El orden importa: la primera regla que coincide define el rubro.
+  /**
+   * Columna REF del sistema administrativo → categoría (familia).
+   *   "REF 2" / "REF 1,5" → REFRESCOS · "CONF CHOWI" → CONFITERIA (subgrupo CHOWI)
+   *   "GALLETAS" / "TIP TOP" → GALLETA · "SALSA X UN" → SALSA · "MORENA" → CERVEZA
+   */
+  function categoryFromRef(ref) {
+    const r = norm(ref);
+    if (!r) return { category: '', subgroup: '' };
+    const parts = r.split(' '), w = parts[0];
+    if (w === 'REF') return { category: 'REFRESCOS', subgroup: '' };
+    if (w === 'CONF' || w === 'CONFI') return { category: 'CONFITERIA', subgroup: parts.length > 1 ? parts[parts.length - 1] : '' };
+    if (w === 'GALLETA' || w === 'GALLETAS') return { category: 'GALLETA', subgroup: '' };
+    if (r === 'TIP TOP') return { category: 'GALLETA', subgroup: 'TIP TOP' };
+    if (w === 'MORENA') return { category: 'CERVEZA', subgroup: '' };
+    return { category: w, subgroup: '' };
+  }
+
+  // Solo si el archivo NO trae categoría: se deduce del nombre con los mismos nombres de familia.
   const RUBRO_RULES = [
-    ['BEBIDAS ALCOHÓLICAS', /\b(WHISKY|WHISKEY|ANIS|SANGRIA|RON|VODKA|GINEBRA|GIN|TEQUILA|VINO|LICOR|COCUY|BRANDY|AGUARDIENTE|TOXICA|PAMPERO)\b/],
-    ['MALTAS', /\b(MALTA|MALTIN)\b/],
-    ['CERVEZAS', /\b(CERVEZA|CERV|ZULIA|CARDENAL|POLAR)\b/],
-    ['JUGOS', /\b(JUGO|NECTAR|DEL VALLE|KAITO|YUKERY|FRICA|TE FRIO|NESTEA|FUZE)\b/],
-    ['AGUAS', /\b(AGUA|NEVADA|MINALBA|ISOTONICA|GATORADE|POWERADE)\b/],
-    ['REFRESCOS', /\b(REFRESCO|COCA|COCACOLA|COLA|FRESCOLITA|CHINOTTO|HIT|PEPSI|SPRITE|FANTA|GOLDEN|UVITA|SCHWEPPES|SODA)\b/],
-    ['SALSAS', /\b(SALSA|MAYONESA|MOSTAZA|KETCHUP|SOYA|INGLESA|PICANTE|ADEREZO|VINAGRE)\b/],
-    ['GALLETAS', /\b(GALLETA|GALLETAS|WAFER|OREO|CLUB SOCIAL|MARIA|TRONKY|CHARMY|TIP TOP|PASTELITO|PALMERITAS|PANQ)\b/],
-    ['PAPAS Y CHOWIS', /\b(PAPA|PAPAS|CHOWI|CHOWIS|CHOWUI|COTUFA|COTUFAS|COTUFYS|TOSTON|DORITOS|CHEETOS|SALSERITO|SASERITO|YUCA|YUCACHIPS|PLATANITOS|CHICHARRON|SURTIDO)\b/],
-    ['VÍVERES', /\b(HARINA|ARROZ|PASTA|ACEITE|AZUCAR|CAFE|LECHE|SAL|MARGARINA|ATUN|SARDINA|CARAOTA|MERMELADA|GELATINA)\b/],
+    ['LICOR', /\b(WHISKY|WHISKEY|ANIS|RON|VODKA|GINEBRA|TEQUILA|VINO|LICOR|TOXICA|PAMPERO|SANGRIA)\b/],
+    ['MALTA', /\b(MALTA|MALTIN)\b/],
+    ['CERVEZA', /\b(CERVEZA|ZULIA|CARDENAL|POLAR)\b/],
+    ['NECTAR', /\b(NECTAR|KAITO)\b/],
+    ['JUGO', /\b(JUGO|DEL VALLE)\b/],
+    ['AGUA', /\b(AGUA|NEVADA|MINALBA)\b/],
+    ['SODA', /\b(SODA|SCHWEPPES)\b/],
+    ['REFRESCOS', /\b(REFRESCO|COCA|COCACOLA|COLA|FRESCOLITA|CHINOTTO|PEPSI|FANTA|GOLDEN)\b/],
+    ['MAYONESA', /\bMAYONESA\b/],
+    ['MOSTAZA', /\bMOSTAZA\b/],
+    ['SALSA', /\b(SALSA|KETCHUP)\b/],
+    ['SARDINA', /\bSARDINA\b/],
+    ['MERMELADA', /\bMERMELADA\b/],
+    ['GELATINA', /\bGELATINA\b/],
+    ['ARROZ', /\bARROZ\b/],
+    ['PASTA', /\bPASTA\b/],
+    ['GALLETA', /\b(GALLETA|GALLETAS|WAFER|CHARMY|TIP TOP|PASTELITO|PALMERITAS|PANQ)\b/],
+    ['CONFITERIA', /\b(PAPA|PAPAS|CHOWI|CHOWUI|COTUFA|COTUFAS|COTUFYS|SALSERITO|SASERITO|YUCA|YUCACHIPS|SURTIDO|CHOCOLATE|CARAMELO|CHUPETA)\b/],
   ];
 
   function classifyRubro(text) {
@@ -158,5 +183,5 @@
     return '';
   }
 
-  global.Importer = { FIELDS, readFile, guess, classifyRubro, splitPresentation, parseUPB, parseSellBy, parseCSV, norm };
+  global.Importer = { FIELDS, readFile, guess, classifyRubro, categoryFromRef, splitPresentation, parseUPB, parseSellBy, parseCSV, norm };
 })(window);

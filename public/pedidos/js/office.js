@@ -32,10 +32,11 @@
     const app = document.getElementById('app');
     const waiting = S.loads.filter((l) => l.status === 'espera').length;
     app.innerHTML = `
-      ${PV.brandHeader('Oficina · Puerto Venado', 'Cargas, pedidos e inventario',
+      ${PV.brandHeader('Hola, ' + (S.config.adminName || 'administrador'), 'Oficina · Puerto Venado',
         `<button id="syncPill" class="pill" type="button"></button><a class="btn btn-sm" href="#/">Salir</a>`)}
       <nav class="tabs">${TABS.map(([k, l]) => `<a class="tab ${k === tab ? 'active' : ''}" href="#/oficina/${k}">${l}${k === 'cargas' && waiting ? ` <span class="count">${waiting}</span>` : ''}</a>`).join('')}</nav>
-      <div class="container" id="officeBody"></div>`;
+      <div class="container" id="officeBody"></div>
+      ${PV.creditFooter()}`;
     $('#syncPill').onclick = () => PV.runSync(true);
     PV.updateSyncPill();
     const body = $('#officeBody');
@@ -455,6 +456,7 @@
         <button class="btn" id="iImp">⇧ Importar Excel/CSV</button>
         <button class="btn" id="iExp">⇩ Exportar</button>
         <button class="btn" id="iPhotos">📷 Fotos en lote</button>
+        <button class="btn" id="iOrder">↕ Ordenar catálogo</button>
       </div>
       <p class="muted">${S.products.length} productos · ${rows.length} mostrados · ${noPhoto} sin foto${S.config.priceListDate ? ' · lista de precios del ' + esc(S.config.priceListDate) : ''}. Los cambios de precio, stock u orden se guardan al salir de la casilla y llegan a los teléfonos al sincronizar.</p>
       <div class="card" style="overflow:auto"><table class="inv inv-edit">
@@ -479,6 +481,7 @@
     $('#iExp').onclick = () => saveFile('catalogo_' + today() + '.csv', '\uFEFF' + catalogCSV(), 'text/csv;charset=utf-8');
     $('#iImp').onclick = () => importDialog('products', root);
     $('#iPhotos').onclick = () => bulkPhotos(root);
+    $('#iOrder').onclick = () => catalogOrderEditor(root);
     root.onclick = (e) => { const b = e.target.closest('[data-edit]'); if (b) productForm(productById(b.dataset.edit), root); };
     root.onchange = async (e) => {
       const inp = e.target.closest('.qin'); if (!inp) return;
@@ -488,6 +491,51 @@
       await saveDocs('products', { ...p, [f]: val });
       toast('Guardado: ' + p.name, 'ok');
     };
+  }
+
+  /**
+   * Orden del catálogo (lo que ven los vendedores y el orden de la hoja de carga):
+   * primero el orden de las categorías, luego el de los productos dentro de cada una.
+   */
+  function catalogOrderEditor(root) {
+    let cat = rubros()[0] || '';
+    const sh = openSheet(`<div class="row"><h2 class="grow">↕ Orden del catálogo</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      <p class="muted">Así lo ven los vendedores en el teléfono y así sale en la hoja de carga. Se guarda al instante.</p>
+      <div class="order-grid"><div><div class="section-title">Categorías</div><div id="ordCats"></div></div>
+      <div><div class="section-title" id="ordTitle"></div><div id="ordProds"></div></div></div>`, { wide: true });
+    const draw = () => {
+      const cats = (S.config.rubros || []).filter((c) => S.products.some((p) => p.category === c));
+      const extra = rubros().filter((c) => !cats.includes(c));
+      const all = cats.concat(extra);
+      $('#ordCats', sh.el).innerHTML = all.map((c, i) => `<div class="ord-item ${c === cat ? 'active' : ''}" data-cat="${esc(c)}">
+        <span class="grow">${PV.rubroIcon(c)} ${esc(c)} <small class="muted">${S.products.filter((p) => p.category === c).length}</small></span>
+        <button class="btn btn-sm" data-cup="${i}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn btn-sm" data-cdown="${i}" ${i < all.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button></div>`).join('');
+      const prods = S.products.filter((p) => p.category === cat).sort(PV.productSort());
+      $('#ordTitle', sh.el).textContent = cat + ' · productos';
+      $('#ordProds', sh.el).innerHTML = prods.map((p, i) => `<div class="ord-item">
+        <span class="grow"><b>${i + 1}.</b> ${esc(p.name)} <small class="muted">${esc(p.presentation)}${p.subgroup && p.subgroup !== p.presentation ? ' · ' + esc(p.subgroup) : ''}</small></span>
+        <button class="btn btn-sm" data-pup="${i}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="btn btn-sm" data-pdown="${i}" ${i < prods.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button></div>`).join('');
+      return { all, prods };
+    };
+    let st = draw();
+    sh.el.addEventListener('click', async (e) => {
+      const b = e.target.closest('button'); const item = e.target.closest('[data-cat]');
+      if (!b && item) { cat = item.dataset.cat; st = draw(); return; }
+      if (!b) return;
+      const swap = (arr, i, j) => { const a = arr.slice(); [a[i], a[j]] = [a[j], a[i]]; return a; };
+      if (b.dataset.cup || b.dataset.cdown) {
+        const i = +(b.dataset.cup || b.dataset.cdown), j = b.dataset.cup ? i - 1 : i + 1;
+        await saveDocs('config', { ...S.config, rubros: swap(st.all, i, j) });
+      } else if (b.dataset.pup || b.dataset.pdown) {
+        const i = +(b.dataset.pup || b.dataset.pdown), j = b.dataset.pup ? i - 1 : i + 1;
+        // Renumera la categoría 1..n y guarda solo los productos que cambiaron
+        const ordered = swap(st.prods, i, j);
+        await saveDocs('products', ordered.map((p, k) => (p.sort === k + 1 ? null : { ...p, sort: k + 1 })).filter(Boolean));
+      } else return;
+      st = draw();
+    });
+    const close = () => renderInventory(root);
+    sh.el.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) close(); });
   }
 
   /** Redimensiona una foto a JPEG liviano (viaja por el sync y queda offline). */
@@ -679,7 +727,9 @@
       const name = get(r, 'name') || (prev && prev.name) || code; // se respeta el nombre de facturación
       let presentation = get(r, 'presentation');
       if (!presentation && !prev) presentation = Importer.splitPresentation(name).presentation;
-      let category = get(r, 'category').toUpperCase();
+      // La categoría la manda el archivo (columna REF/categoría); solo si viene vacía se deduce
+      const fromRef = Importer.categoryFromRef(get(r, 'category'));
+      let category = fromRef.category;
       if (!category) category = prev ? prev.category : (opt.auto ? Importer.classifyRubro(name) : 'OTROS');
       const sellBy = Importer.parseSellBy(get(r, 'sellBy')) || (prev ? prev.sellBy : 'caja');
       const upb = Importer.parseUPB(get(r, 'unitsPerBox')) || (prev ? prev.unitsPerBox : 1);
@@ -687,6 +737,7 @@
       const doc = {
         ...(prev || { id: 'p_' + slug(code), active: true, image: '', sort: 0, deleted: false }),
         code, name, presentation: presentation || (prev ? prev.presentation : ''), category,
+        subgroup: fromRef.subgroup || (prev ? prev.subgroup || '' : ''),
         brand: get(r, 'brand') || (prev ? prev.brand || '' : ''),
         sellBy, unitsPerBox: sellBy === 'unidad' ? 1 : upb,
         boxPrice: has('boxPrice') ? Matrix.r2(dec(get(r, 'boxPrice'))) : (prev ? prev.boxPrice : 0),
@@ -870,7 +921,16 @@
 
         <section class="card card-pad"><h3>Rutas</h3>${listEditor('routesEd', c.routes || [], 'Nueva ruta')}</section>
         <section class="card card-pad"><h3>Despachadores</h3>${listEditor('dispEd', (c.dispatchers || []).map((d) => d.name), 'Nuevo despachador')}</section>
-        <section class="card card-pad"><h3>Rubros (orden del catálogo y de la hoja de carga)</h3>${listEditor('rubEd', c.rubros || [], 'Nuevo rubro')}</section>
+        <section class="card card-pad"><h3>Categorías (orden del catálogo y de la hoja de carga)</h3>
+          <p class="muted">Para ordenar también los productos dentro de cada categoría usa Inventario → ↕ Ordenar catálogo.</p>
+          ${listEditor('rubEd', c.rubros || [], 'Nueva categoría')}</section>
+
+        <section class="card card-pad"><h3>Mi perfil de administrador</h3>
+          <div class="grid2">
+            <label class="field"><span>Nombre para el saludo</span><input id="adName" class="input" maxlength="30" value="${esc(c.adminName || '')}" placeholder="Daniela"></label>
+            <label class="field"><span>Pie de página (créditos)</span><input id="adFooter" class="input" maxlength="140" value="${esc(c.footer || '')}"></label>
+          </div>
+          <div class="row" style="margin-top:12px"><button class="btn btn-primary" id="adSave">Guardar</button></div></section>
 
         <section class="card card-pad"><h3>Empresa (aparece en hojas y notas)</h3>
           <div class="grid2">
@@ -908,6 +968,7 @@
       const prev = S.config.dispatchers || [];
       return saveCfg({ dispatchers: names.map((n) => prev.find((d) => d.name === n) || { id: DB.uid('d'), name: n }) });
     });
+    $('#adSave').onclick = () => saveCfg({ adminName: $('#adName').value.trim(), footer: $('#adFooter').value.trim() });
     $('#coSave').onclick = () => saveCfg({
       company: { ...S.config.company, name: $('#coName').value.trim(), rif: $('#coRif').value.trim(), phone: $('#coPhone').value.trim(), address: $('#coAddr').value.trim() },
       exchangeRate: dec($('#cRate').value), priceListDate: $('#cPl').value,

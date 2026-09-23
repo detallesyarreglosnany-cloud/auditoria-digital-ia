@@ -57,7 +57,19 @@ abierto ──cierra y envía──▶ enviado ──armado automático──▶
 
 ## 2. Catálogo (lista de precios 30/07/2026)
 
-- 169 renglones → **139 productos** en 10 rubros: REFRESCOS, AGUAS, JUGOS, MALTAS, CERVEZAS, BEBIDAS ALCOHÓLICAS, GALLETAS, PAPAS Y CHOWIS, SALSAS y VÍVERES. El orden de los rubros se edita en Ajustes.
+- 169 renglones → **139 productos**. Las **categorías salen de la columna REF del archivo**, agrupadas por familia:
+  - `REF 2`, `REF 1,5`, `REF 1,25`, `REF 1`, `REF 350`, `REF LATA` y `REF PET 355` → **REFRESCOS**, con el tamaño como subgrupo.
+  - `CONF CHOWI`, `CONF PAPA`, `CONF YUCA`, etc. → **CONFITERIA**, con subgrupo CHOWI, PAPA, YUCA, etc.
+  - `GALLETA`, `GALLETAS` y `TIP TOP` → **GALLETA**.
+  - `MORENA` (Cerveza Morena) → **CERVEZA**.
+  - El resto toma su primera palabra: `SALSA X UN` → SALSA, `MOSTAZA VIDRIO` → MOSTAZA.
+  - Al importar un Excel con la columna REF se aplica la misma regla (`Importer.categoryFromRef`).
+- **Orden inicial:**
+  - Categorías: REFRESCOS › SODA › JUGO › NECTAR › AGUA › MALTA › CERVEZA › SARDINA › CONFITERIA › GALLETA › ARROZ › PASTA › MERMELADA › GELATINA › SALSA › MAYONESA › MOSTAZA › LICOR.
+  - Dentro de REFRESCOS: 2 L › 1,5 L › 1,25 L › 1 L › 350 ml › lata › PET 355.
+  - Dentro de LICOR: whiskys primero.
+  - Todo se ajusta en **Inventario → ↕ Ordenar catálogo**, con flechas para categorías y productos. El cambio llega a los teléfonos y a la hoja de carga.
+- **Perfil de administrador:** la oficina saluda con "Hola, Daniela". El nombre y el pie de página se editan en Ajustes → Mi perfil de administrador.
 - **Forma de venta:**
   - **Caja y unidad:** solo cuando la lista trae ambos precios. En ese caso los dos renglones se fusionan en un producto (30 casos). El código de caja queda como principal y el de unidad en `unitCode`.
   - **Solo unidad:** whisky, ron, anís y vodka, además de los renglones "P/UND" sin caja equivalente.

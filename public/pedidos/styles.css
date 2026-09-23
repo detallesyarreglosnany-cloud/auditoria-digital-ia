@@ -329,4 +329,11 @@ table.inv .qin { width: 96px; min-height: 40px; text-align: right; font-weight: 
 @media (min-width: 1000px) { .plist { grid-template-columns: repeat(4, minmax(0, 1fr)); } .client-bar, .catalog-tools { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 1400px) { .plist { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
+.credit { text-align: center; font-size: 11px; color: #6f686b; padding: 18px 16px 24px; letter-spacing: .02em; }
+.login .credit { padding: 4px 0 0; }
+.order-grid { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 16px; }
+@media (max-width: 700px) { .order-grid { grid-template-columns: 1fr; } }
+.ord-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; background: var(--bg-2); cursor: pointer; }
+.ord-item.active { border-color: var(--brand-2); box-shadow: var(--glow); }
+
 @media print { .topbar, .tabs, .toolbar, .no-print, .toast { display: none !important; } body { background: #fff; color: #000; } }

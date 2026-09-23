@@ -28,10 +28,13 @@
     { id: 'd_aquiles', name: 'Aquiles M.' },
   ];
 
-  /** Rubros en el orden en que se arma la carga en el almacén (editable en Ajustes). */
+  /**
+   * Categorías = columna REF de la lista de precios de la empresa, agrupada por
+   * familia. El orden (y los nombres) se ajustan en Oficina → Ajustes.
+   */
   const RUBROS = [
-    'REFRESCOS', 'AGUAS', 'JUGOS', 'MALTAS', 'CERVEZAS', 'BEBIDAS ALCOHÓLICAS',
-    'GALLETAS', 'PAPAS Y CHOWIS', 'SALSAS', 'VÍVERES',
+    'REFRESCOS', 'SODA', 'JUGO', 'NECTAR', 'AGUA', 'MALTA', 'CERVEZA', 'SARDINA', 'CONFITERIA', 'GALLETA',
+    'ARROZ', 'PASTA', 'MERMELADA', 'GELATINA', 'SALSA', 'MAYONESA', 'MOSTAZA', 'LICOR',
   ];
 
   function defaultConfig() {
@@ -47,6 +50,8 @@
       rubros: RUBROS.slice(),
       load: { limit: 900, maxClients: 32, measure: 'bultos' }, // bultos = cajas + unid. sueltas
       priceListDate: '',
+      adminName: 'Daniela',
+      footer: '© 2026 Distribuidora de Suministros Puerto Venado · Desarrollado por Daniela Silva',
       exchangeRate: 0,
       counters: { load: 0, note: 0 },
       updatedAt: new Date().toISOString(), deleted: false, dirty: true,

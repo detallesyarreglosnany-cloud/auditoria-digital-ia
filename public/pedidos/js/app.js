@@ -52,9 +52,9 @@
   const hasStock = (p) => p.stock !== null && p.stock !== undefined && p.stock !== '';
   const productLabel = (p) => p.name + ' ' + p.presentation;
   const RUBRO_ICON = {
-    'REFRESCOS': '🥤', 'AGUAS': '💧', 'AGUAS E ISOTÓNICAS': '💧', 'JUGOS': '🧃', 'MALTAS': '🍺', 'CERVEZAS': '🍺', 'CERVEZAS Y MALTAS': '🍺',
-    'BEBIDAS ALCOHÓLICAS': '🥃', 'GALLETAS': '🍪', 'PAPAS Y CHOWIS': '🥔', 'CONFITERÍA': '🍬',
-    'SALSAS': '🍅', 'VÍVERES': '🛒',
+    REFRESCOS: '🥤', SODA: '🥤', JUGO: '🧃', NECTAR: '🧃', AGUA: '💧', MALTA: '🍺', CERVEZA: '🍺',
+    SARDINA: '🐟', CONFITERIA: '🍿', GALLETA: '🍪', ARROZ: '🍚', PASTA: '🍝', MERMELADA: '🍓', GELATINA: '🍮',
+    SALSA: '🍅', MAYONESA: '🥫', MOSTAZA: '🥫', LICOR: '🥃',
   };
   const rubroIcon = (c) => RUBRO_ICON[c] || '📦';
 
@@ -224,6 +224,12 @@
     return renderLogin();
   }
 
+  /** Créditos del proyecto (editable en Ajustes → Mi perfil). */
+  function creditFooter() {
+    const t = (S.config && S.config.footer) || '';
+    return t ? `<footer class="credit">${esc(t)}</footer>` : '';
+  }
+
   function brandHeader(title, sub, right) {
     return `<header class="topbar">
       <img class="brand-mark" src="./icons/mark-white.png" alt="Puerto Venado" width="40" height="40">
@@ -246,8 +252,9 @@
           </label>
           <button id="enterBtn" class="btn btn-primary btn-block" ${last ? '' : 'disabled'}>Entrar a mi ruta →</button>
           <div class="divider">o</div>
-          <a class="btn btn-block" href="#/oficina/cargas">🖥️ Oficina · Cargas e inventario</a>
+          <a class="btn btn-block" href="#/oficina/cargas">🖥️ Oficina · Administración</a>
         </div>
+        ${creditFooter()}
       </section>`;
     const sel = $('#sellerSel'), btn = $('#enterBtn');
     sel.onchange = () => { btn.disabled = !sel.value; };
@@ -602,7 +609,8 @@
           <div class="muted" style="font-size:13px">${last ? (last.ok ? 'Último sync correcto.' : 'Último intento: ' + esc(last.error || 'sin señal')) : ''}</div>
         </div>
       </details>
-      <div class="actions"><button class="btn btn-danger" id="mOut">Cambiar de vendedor</button></div>`);
+      <div class="actions"><button class="btn btn-danger" id="mOut">Cambiar de vendedor</button></div>
+      ${creditFooter()}`);
     $('#mSync', sh.el).onclick = () => runSync(true);
     $('#mExport', sh.el).onclick = async () => {
       const seller = sellerById(S.session.sellerId);
@@ -648,7 +656,7 @@
 
   window.PV = {
     S, $, $$, esc, nf2, nf0, usd, bs, int, dec, norm, slug, today, fmtDate, fmtStock, hasStock, productSort, productLabel, rubroIcon,
-    toast, openSheet, copyText, saveFile, pickFile, brandHeader,
+    toast, openSheet, copyText, saveFile, pickFile, brandHeader, creditFooter,
     loadAll, saveDocs, saveOrder, saveSettings, setSession, runSync, updateSyncPill, render,
     productById, sellerById, orderById, clientById, rubros, orderLinesHTML,
     boot,
