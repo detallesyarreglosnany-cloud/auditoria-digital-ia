@@ -10,8 +10,8 @@
  *   - Last-write-wins por updatedAt.
  *   - Catálogo (products/sellers): la oficina es la autoridad. Un equipo sin
  *     clave admin SIEMPRE acepta la versión remota y nunca sube catálogo.
- *   - Pedidos: un pedido "despachado" queda congelado; la versión local de un
- *     vendedor no puede pisarlo.
+ *   - Pedidos: si su hoja de carga está en un estado bloqueado (aprobada para
+ *     carga, cerrada…) queda congelado; la versión del vendedor no lo pisa.
  * ========================================================================= */
 (function (global) {
   'use strict';
@@ -20,8 +20,8 @@
   const KINDS = ['orders', 'clients', 'products', 'sellers', 'loads', 'config'];
   // Solo la oficina (clave admin) publica estos tipos
   const ADMIN_KINDS = ['products', 'sellers', 'loads', 'config'];
-  // Un pedido en estos estados ya lo controla la oficina: el teléfono no lo pisa
-  const LOCKED = ['en_carga', 'en_espera', 'despachado'];
+  // Un pedido bloqueado (hoja aprobada/cerrada) ya no lo puede pisar el teléfono
+  const isLocked = (o) => !!o && (o.locked === true || o.status === 'despachado');
   const INITIAL_ORDER_DAYS = 14; // historial que baja un teléfono nuevo
   let running = null;
 
@@ -49,7 +49,7 @@
       const l = byId.get(r.id);
       if (l && l.dirty) {
         if (store === 'orders') {
-          const frozen = LOCKED.includes(r.status) && !isAdmin;
+          const frozen = isLocked(r) && !isAdmin;
           if (!frozen && newer(l, r)) return; // mi cambio local es más reciente
         } else if ((isAdmin || store === 'clients') && newer(l, r)) {
           return; // la oficina editó después: se subirá en el próximo push
@@ -206,5 +206,5 @@
     return n;
   }
 
-  global.Sync = { KINDS, LOCKED, syncNow, pendingCount, exportBundle, importBundle, deviceId, DEFAULT_SYNC_URL };
+  global.Sync = { KINDS, isLocked, syncNow, pendingCount, exportBundle, importBundle, deviceId, DEFAULT_SYNC_URL };
 })(window);

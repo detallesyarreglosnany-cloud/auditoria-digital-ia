@@ -33,27 +33,36 @@ public/pedidos/
 ## 1. Flujo operativo
 
 ```
-VENDEDOR (teléfono)                 OFICINA (PC)
-abierto ──cierra y envía──▶ enviado ──armado automático──▶ en_carga (Hoja "Esperando aprobación")
-                                         │  ✎ editar cantidades / ⏸ pasar a espera ──▶ en_espera
-                                         │  ↩ reincorporar ──▶ vuelve a la cola
-                                         └─ ✓ Aprobar carga ──▶ despachado · Nº de carga · Nº de nota
-                                                                · descuenta inventario · Archivo
+VENDEDOR (teléfono)                     OFICINA (PC)
+abierto ─cierra y envía─▶ enviado ─armado automático─▶ hoja "Esperando aprobación"   ✏️ editable (vendedor y oficina)
+                                                        │ ⇄ mover · ⏸ espera · fusionar · ← → reordenar
+                                                        ▼
+                                                   "Aprobada para carga"  🔒 ya nadie edita · Nº de carga
+                                                        ▼
+                                                   "Carga cerrada"        🔒 cierre: notas NE, inventario, fecha, Archivo
+                                                        ▼
+                                                   "Despachada" / estados que agregues
 ```
 
-- **Hoja de carga:** agrupa los pedidos de **un vendedor y una ruta**. El tope es **900 bultos o 32 clientes**, configurable en Ajustes. Bultos = cajas + unidades sueltas; se puede cambiar a "unidades totales".
-  - Si un pedido ya no cabe, se abre otra hoja. Puede haber varias hojas esperando aprobación a la vez.
-  - Un pedido que por sí solo pasa del tope ocupa una hoja propia, marcada como **EXCEDIDA**.
-- **Estados de la hoja:**
-  - *Esperando aprobación*: la hoja está en cola.
-  - *Carga aprobada*: la hoja se cierra, se imprime y pasa al archivo.
-  - *Carga en espera*: clientes que se dejan para otra carga; no se pierde su pedido.
-- **En la oficina** se asigna la **ruta** y el **despachador** (Ernesto Ch., Sr. Luis T., Douglas Ch., Aquiles M.) con menús desplegables. También se editan las cantidades de cualquier celda: por ejemplo, 300 → 50 si no hay existencia. Se muestran los **faltantes de inventario**.
-- **Impresión:**
-  - *Hoja de carga*: carta horizontal, **sin precios**, totales por producto y por cliente, firmas.
-  - *Notas de entrega*: una por cliente, **con precios**, en ORIGINAL (cliente) + COPIA (empresa), numeradas NE-000001….
-- **Archivo:** guarda cada carga aprobada con fecha, número, vendedor, ruta, despachador, clientes, bultos, unidades, monto y rango de notas. Se filtra y se exporta a CSV.
-- **Bloqueo:** cuando un pedido entra en una hoja, el teléfono ya no puede modificarlo. El servidor lo rechaza aunque llegue tarde. Los cambios de la oficina (cantidades, precios, catálogo, clientes, rutas) llegan a los teléfonos en el siguiente sync: cada 45 s o al tocar ⟳.
+- **Estados configurables** en Ajustes → Estados de la carga: nombre, orden y dos marcas.
+  - **🔒 Bloquea:** desde ese estado nadie edita los pedidos.
+  - **Cierra la carga:** numera las notas, descuenta el inventario, fija la fecha y la pasa al Archivo.
+  - El estado se cambia con el selector de la hoja. Si una hoja cerrada se lleva a un estado sin cierre, se **reabre**: el inventario se devuelve y los números ya emitidos se conservan.
+- **Edición de pedidos:** vendedor (con o sin señal) y oficina editan mientras la hoja esté en un estado sin 🔒. El servidor protege los campos de la oficina (hoja, estado, bloqueo, número de nota). Así, un teléfono con información atrasada nunca saca un pedido de su hoja ni lo duplica. Los cambios quedan marcados como "editado oficina" o "modificado por vendedor".
+- **Hojas:** agrupan uno o **varios vendedores** (fusionar), con las iniciales L.R. / F.A. sobre cada cliente. El tope es 900 bultos o 32 clientes, configurable. Se puede:
+  - mover un cliente a otra hoja o a una hoja nueva;
+  - reordenar las columnas (← →);
+  - crear hojas vacías;
+  - dejar clientes en espera y reincorporarlos después.
+- **Datos editables de la hoja:**
+  - **código** (automático tipo `SEP16-BARR`);
+  - **fecha de la carga** (si se deja vacía, se toma la fecha del cierre; la hoja muestra además el rango de fechas de los pedidos, ej. `14-16SEP`);
+  - ruta y despachador.
+
+  Los vendedores, rutas y despachadores se agregan en Vendedores y Ajustes.
+- **Totales siempre visibles:** en pantalla, el encabezado, las filas de totales y la columna TOTAL quedan fijos al desplazarse. La hoja impresa sale sin precios, con la fila de iniciales del vendedor y columnas en blanco configurables (por defecto **VACÍOS** y **DEVOLUCIÓN**).
+- **Notas de entrega:** una por cliente, con precios, en ORIGINAL y COPIA.
+- **Archivo:** guarda las cargas cerradas con código, número, fecha, estado, vendedores, ruta, despachador y totales. Se filtra y se exporta a CSV.
 
 ## 2. Catálogo (lista de precios 30/07/2026)
 

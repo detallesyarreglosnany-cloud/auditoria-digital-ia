@@ -273,8 +273,8 @@
   }
 
   /* ========================== Módulo de campo ========================== */
-  const LOCKED = Sync.LOCKED;
-  const editable = (o) => o && !LOCKED.includes(o.status);
+  const editable = (o) => Loads.editable(o);
+  const canDelete = (o) => o && (o.status === 'abierto' || o.status === 'enviado');
 
   function myOrdersToday() {
     const sid = S.session.sellerId, d = today();
@@ -386,6 +386,7 @@
   }
 
   const STATUS_MARK = { enviado: '✓ ', en_carga: '🚚 ', en_espera: '⏸ ', despachado: '▣ ' };
+  const markOf = (o) => (o.locked && o.status !== 'despachado' ? '🔒 ' : STATUS_MARK[o.status] || '');
 
   function renderSeller() {
     const seller = sellerById(S.session.sellerId);
@@ -412,7 +413,7 @@
           ${orders.length ? orders.map((x) => {
             const t = Matrix.orderTotals(x);
             return `<button class="chip ${o && o.id === x.id ? 'active' : ''} st-${x.status}" data-oid="${esc(x.id)}" role="tab">
-              ${STATUS_MARK[x.status] || ''}${esc(x.clientName)} <span class="badge">${usd(t.monto)}</span></button>`;
+              ${markOf(x)}${esc(x.clientName)} <span class="badge">${usd(t.monto)}</span></button>`;
           }).join('') : '<span class="muted" style="padding:10px 2px">Escribe el primer cliente de tu ruta de hoy.</span>'}
         </div>
       </section>
@@ -480,7 +481,8 @@
     const o = activeOrder();
     let hint = '';
     if (!o) hint = `<div class="hint">👆 Primero escribe o elige el cliente. Las cantidades se cargan a ese cliente.</div>`;
-    else if (!editable(o)) hint = `<div class="hint warn">🔒 Este pedido está <b>${esc(Loads.ORDER_LABEL[o.status])}</b>. Solo la oficina puede modificarlo.</div>`;
+    else if (!editable(o)) hint = `<div class="hint warn">🔒 Este pedido está <b>${esc(Loads.orderLabel(o))}</b>: la carga ya fue aprobada y no se puede modificar.</div>`;
+    else if (o.loadId) hint = `<div class="hint">✏️ Este pedido ya está en una hoja de carga (<b>${esc(Loads.orderLabel(o))}</b>). Aún puedes modificarlo; la oficina verá los cambios.</div>`;
     if (!S.products.length) {
       list.innerHTML = `<div class="empty"><strong>Catálogo vacío</strong>Toca ⟳ para sincronizar con la oficina.</div>`;
       return;
@@ -505,7 +507,7 @@
     const rate = +S.config.exchangeRate || 0;
     bar.innerHTML = `
       <div class="cart-info"><b>${esc(o.clientName)}</b> · ${t.cajas} cj + ${t.unidades} un${rate ? ' · ' + bs(t.monto * rate) : ''}
-        ${o.status !== 'abierto' ? ` · <span class="status ${o.status}">${esc(Loads.ORDER_LABEL[o.status])}</span>` : ''}</div>
+        ${o.status !== 'abierto' ? ` · <span class="status ${o.status}">${esc(Loads.orderLabel(o))}</span>` : ''}</div>
       <button class="cart-btn" id="viewOrder">Ver pedido (${t.items} ítems) · ${usd(t.monto)}</button>`;
     $('#viewOrder').onclick = orderSheet;
   }
@@ -513,7 +515,7 @@
   async function setQty(pid, kind, value) {
     const o = activeOrder();
     if (!o) { toast('Primero escribe el nombre del cliente', 'err'); $('#clientInput').focus(); return; }
-    if (!editable(o)) { toast('Pedido ' + Loads.ORDER_LABEL[o.status].toLowerCase() + ': solo la oficina puede modificarlo', 'err'); return; }
+    if (!editable(o)) { toast('Pedido bloqueado (' + Loads.orderLabel(o) + '): ya no se puede modificar', 'err'); return; }
     const p = productById(pid); if (!p) return;
     value = Math.max(0, Math.min(99999, int(value)));
     const line = o.lines[pid] || {
@@ -524,6 +526,7 @@
     line[kind] = value;
     if (!line.cajas && !line.unidades) delete o.lines[pid]; else o.lines[pid] = line;
     if (o.status === 'enviado') { o.status = 'abierto'; toast('Pedido reabierto: recuerda enviarlo de nuevo'); }
+    else if (o.loadId || o.status === 'en_espera') o.sellerEdited = DB.now(); // la oficina ve "modificado por el vendedor"
     await saveOrder(o);
     const card = $(`#plist [data-pid="${CSS.escape(pid)}"]`);
     if (card) {
@@ -556,15 +559,16 @@
     const sh = openSheet(`
       <div class="row"><div class="grow"><h2>${esc(o.clientName)}</h2>
         <div class="muted">${esc([client.rif, client.address].filter(Boolean).join(' · '))}</div>
-        <div class="muted">${esc(fmtDate(o.routeDate))} · Ruta ${esc(o.route || '—')} · <span class="status ${o.status}">${esc(Loads.ORDER_LABEL[o.status])}</span></div></div>
+        <div class="muted">${esc(fmtDate(o.routeDate))} · Ruta ${esc(o.route || '—')} · <span class="status ${o.status}">${esc(Loads.orderLabel(o))}</span></div></div>
         <button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
       ${o.officeEdited ? '<div class="hint warn">La oficina ajustó cantidades de este pedido.</div>' : ''}
       ${orderLinesHTML(o)}
       <label class="field" style="margin-top:14px"><span>Nota para despacho</span>
         <textarea id="notes" class="input" maxlength="300" placeholder="Ej: entregar antes de las 10am, cobrar en divisas…" ${locked ? 'disabled' : ''}>${esc(o.notes || '')}</textarea></label>
       <div class="actions">
-        ${locked ? '' : `<button class="btn btn-ok" id="sendOrder" ${Object.keys(o.lines).length ? '' : 'disabled'}>✓ Cerrar y enviar</button>`}
-        <button class="btn btn-danger" id="delOrder" ${locked ? 'disabled' : ''}>Eliminar</button>
+        ${o.status === 'abierto' ? `<button class="btn btn-ok" id="sendOrder" ${Object.keys(o.lines).length ? '' : 'disabled'}>✓ Cerrar y enviar</button>` : ''}
+        ${!locked && o.status !== 'abierto' ? '<button class="btn btn-primary" data-close>✓ Listo (cambios guardados)</button>' : ''}
+        <button class="btn btn-danger" id="delOrder" ${canDelete(o) ? '' : 'disabled'}>Eliminar</button>
       </div>`);
     const notes = $('#notes', sh.el);
     notes.onchange = async () => { o.notes = notes.value.slice(0, 300); await saveOrder(o); };
@@ -595,7 +599,7 @@
     const sh = openSheet(`
       <div class="row"><h2 class="grow">Mi ruta de hoy</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
       <p class="muted">${orders.length} clientes · <b>${usd(total)}</b></p>
-      <table class="lines">${orders.map((o) => `<tr><td>${STATUS_MARK[o.status] || ''}${esc(o.clientName)}<div class="muted" style="font-size:12px">${esc(Loads.ORDER_LABEL[o.status])}</div></td><td class="num">${usd(Matrix.orderTotals(o).monto)}</td></tr>`).join('')}</table>
+      <table class="lines">${orders.map((o) => `<tr><td>${markOf(o)}${esc(o.clientName)}<div class="muted" style="font-size:12px">${esc(Loads.orderLabel(o))}</div></td><td class="num">${usd(Matrix.orderTotals(o).monto)}</td></tr>`).join('')}</table>
       <div class="actions" style="flex-direction:column">
         <button class="btn btn-primary" id="mSync">⟳ Sincronizar ahora</button>
         <button class="btn" id="mExport">⇪ Enviar pedidos de hoy por archivo (WhatsApp)</button>

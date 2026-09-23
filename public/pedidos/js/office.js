@@ -30,7 +30,7 @@
     Object.assign(S.ui.office, { date: U().date || today(), mode: U().mode || 'bultos' });
     autoPack();
     const app = document.getElementById('app');
-    const waiting = S.loads.filter((l) => l.status === 'espera').length;
+    const waiting = S.loads.filter((l) => !l.deleted && !Loads.isClosed(l)).length;
     app.innerHTML = `
       ${PV.brandHeader('Hola, ' + (S.config.adminName || 'administrador'), 'Oficina · Puerto Venado',
         `<button id="syncPill" class="pill" type="button"></button><a class="btn btn-sm" href="#/">Salir</a>`)}
@@ -75,53 +75,70 @@
   function bar(pct, over, label) {
     return `<div class="bar ${over ? 'over' : pct >= 100 ? 'full' : ''}"><i style="width:${Math.min(100, pct)}%"></i><span>${label}</span></div>`;
   }
+  const stName = (l) => Loads.statusOf(l, S.config).name;
+  const sellerTags = (l) => Loads.sellerIdsOf(l).map((id) => { const s = sellerById(id); return s ? `<span class="tag" title="${esc(s.name)}">${esc(Loads.initials(s.name))}</span>` : ''; }).join('');
+  const openLoads = () => S.loads.filter((l) => Loads.isOpen(l, S.config) && !Loads.isClosed(l));
 
   function renderLoads(root) {
     if (U().loadId) { const l = S.loads.find((x) => x.id === U().loadId); if (l) return renderLoadDetail(root, l); U().loadId = null; }
     const ordersById = byIdMap(S.orders);
     const sid = U().loadSeller || '';
-    const loads = S.loads.filter((l) => l.status === 'espera' && (!sid || l.sellerId === sid))
-      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    const mine = (l) => !sid || Loads.sellerIdsOf(l).includes(sid);
+    // En curso = todo lo que aún no se cerró (editables y aprobadas para carga)
+    const active = S.loads.filter((l) => !Loads.isClosed(l) && mine(l)).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
     const held = S.orders.filter((o) => o.status === 'en_espera' && (!sid || o.sellerId === sid));
     const open = S.orders.filter((o) => o.status === 'abierto' && o.routeDate === today() && Matrix.orderTotals(o).items && (!sid || o.sellerId === sid));
     const L = Loads.limits(S.config);
+    const groups = Loads.statuses(S.config).filter((st) => !st.closing).map((st) => ({ st, list: active.filter((l) => Loads.statusOf(l, S.config).id === st.id) }));
+    const card = (l) => {
+      const u = Loads.usage(l, ordersById, S.config);
+      const st = Loads.statusOf(l, S.config);
+      return `<button class="load-card ${u.over ? 'over' : u.full ? 'full' : ''} ${st.locked ? 'locked' : ''}" data-lid="${esc(l.id)}">
+        <div class="row"><b class="grow">${esc(Loads.labelOf(l))} ${l.number ? `<span class="muted mono">${esc(Loads.loadCode(l))}</span>` : ''}</b>${sellerTags(l)}</div>
+        <div class="muted">${esc(l.sellerName)} · Ruta ${esc(l.route || '—')}</div>
+        ${bar(u.pct, u.used > u.limit, `${nf0.format(u.used)} / ${nf0.format(u.limit)} ${u.measure}`)}
+        ${bar(u.pctClients, u.clients > u.maxClients, `${u.clients} / ${u.maxClients} clientes`)}
+        <div class="row"><span class="status ${st.locked ? 'locked' : 'espera'}">${st.locked ? '🔒 ' : ''}${esc(st.name)}</span>
+          ${u.over ? '<span class="status over">EXCEDIDA</span>' : u.full ? '<span class="status full">CARGA COMPLETA</span>' : ''}
+          <span class="grow"></span><span class="muted">${esc(l.dispatcherName || 'sin despachador')}</span></div>
+      </button>`;
+    };
     root.innerHTML = `
       <div class="toolbar">
         <label class="field"><span>Vendedor</span><select id="lSeller" class="select">
           <option value="">Todos</option>${S.sellers.map((s) => `<option value="${esc(s.id)}" ${s.id === sid ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
         <div class="grow kpis big">
-          <span><b>${loads.length}</b> hojas esperando aprobación</span>
+          <span><b>${active.length}</b> hojas en curso</span>
           <span><b>${held.length}</b> clientes en espera</span>
           <span><b>${open.length}</b> pedidos abiertos (vendedores en ruta)</span>
         </div>
+        <button class="btn" id="lNew">＋ Nueva hoja</button>
         <button class="btn" id="lSync">⟳ Actualizar</button>
       </div>
-      <p class="muted">Tope por hoja: <b>${nf0.format(L.limit)} ${L.measure}</b> o <b>${L.maxClients} clientes</b>. Al llenarse se abre otra hoja del mismo vendedor y ruta.</p>
-      ${loads.length ? `<div class="load-grid">${loads.map((l) => {
-        const u = Loads.usage(l, ordersById, S.config);
-        return `<button class="load-card ${u.over ? 'over' : u.full ? 'full' : ''}" data-lid="${esc(l.id)}">
-          <div class="row"><b class="grow">${esc(l.sellerName)}</b><span class="status espera">${u.over ? 'EXCEDIDA' : u.full ? 'CARGA COMPLETA' : 'Esperando aprobación'}</span></div>
-          <div class="muted">Ruta ${esc(l.route || '—')} · abierta ${esc(new Date(l.createdAt).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }))}</div>
-          ${bar(u.pct, u.used > u.limit, `${nf0.format(u.used)} / ${nf0.format(u.limit)} ${u.measure}`)}
-          ${bar(u.pctClients, u.clients > u.maxClients, `${u.clients} / ${u.maxClients} clientes`)}
-          <div class="muted">Despachador: ${esc(l.dispatcherName || 'sin asignar')}</div>
-        </button>`;
-      }).join('')}</div>` : `<div class="empty card"><strong>No hay hojas esperando aprobación</strong>Cuando un vendedor cierre y envíe un pedido, aparecerá aquí automáticamente.</div>`}
+      <p class="muted">Tope por hoja: <b>${nf0.format(L.limit)} ${L.measure}</b> o <b>${L.maxClients} clientes</b>. Los pedidos se pueden editar (vendedor y oficina) mientras la hoja esté en un estado sin 🔒.</p>
+      ${groups.map(({ st, list }) => `
+        <div class="section-title">${st.locked ? '🔒 ' : ''}${esc(st.name)} · ${list.length}</div>
+        ${list.length ? `<div class="load-grid">${list.map(card).join('')}</div>` : '<p class="muted">Ninguna.</p>'}`).join('')}
       <div class="section-title">⏸ Clientes en espera (no se pierde el pedido)</div>
       ${held.length ? `<div class="card"><table class="inv">${held.map((o) => {
         const t = Matrix.orderTotals(o);
         return `<tr><td><b>${esc(o.clientName)}</b><div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')} · ${esc(fmtDate(o.routeDate))}</div></td>
           <td class="n">${t.bultos} bultos</td><td class="n">${usd(t.monto)}</td>
-          <td style="white-space:nowrap"><button class="btn btn-sm" data-edit="${esc(o.id)}">Editar</button> <button class="btn btn-sm btn-primary" data-release="${esc(o.id)}">↩ Reincorporar</button></td></tr>`;
+          <td style="white-space:nowrap"><button class="btn btn-sm" data-edit="${esc(o.id)}">Editar</button>
+            <button class="btn btn-sm" data-move="${esc(o.id)}">⇄ A una hoja</button>
+            <button class="btn btn-sm btn-primary" data-release="${esc(o.id)}">↩ Reincorporar</button></td></tr>`;
       }).join('')}</table></div>` : '<p class="muted">Ninguno.</p>'}`;
 
     $('#lSeller').onchange = (e) => { U().loadSeller = e.target.value; renderLoads(root); };
     $('#lSync').onclick = () => PV.runSync(true);
+    $('#lNew').onclick = () => newLoadDialog(root);
     root.onclick = async (e) => {
       const c = e.target.closest('[data-lid]');
       if (c) { U().loadId = c.dataset.lid; renderLoads(root); return; }
       const ed = e.target.closest('[data-edit]');
       if (ed) { orderEditor(orderById(ed.dataset.edit), () => renderLoads(root)); return; }
+      const mv = e.target.closest('[data-move]');
+      if (mv) { moveDialog(orderById(mv.dataset.move), null, () => renderLoads(root)); return; }
       const rl = e.target.closest('[data-release]');
       if (rl) {
         await saveOrder(Loads.release(orderById(rl.dataset.release)));
@@ -130,24 +147,78 @@
     };
   }
 
-  function renderLoadDetail(root, load, readonly) {
-    const ro = readonly;
+  function newLoadDialog(root) {
+    const sh = openSheet(`<div class="row"><h2 class="grow">Nueva hoja de carga</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      <p class="muted">Crea una hoja vacía y luego mueve clientes a ella (⇄ Mover) o fusiona otra hoja.</p>
+      <div class="grid2"><label class="field"><span>Vendedor</span><select id="nlS" class="select">${S.sellers.filter((s) => s.active).map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select></label>
+      <label class="field"><span>Ruta</span><select id="nlR" class="select">${(S.config.routes || []).map((r) => `<option>${esc(r)}</option>`).join('')}</select></label></div>
+      <div class="actions"><button class="btn btn-primary" id="nlOk">Crear hoja</button></div>`);
+    $('#nlOk', sh.el).onclick = async () => {
+      const s = sellerById($('#nlS', sh.el).value);
+      const r = Loads.moveOrder({ id: '__tmp', sellerId: s.id, sellerName: s.name, route: $('#nlR', sh.el).value }, null, null, { sellers: S.sellers, config: S.config });
+      const l = { ...r.loads[0], orderIds: [], route: $('#nlR', sh.el).value };
+      await saveDocs('loads', l);
+      sh.close(); U().loadId = l.id; renderLoads(root); toast('Hoja creada', 'ok');
+    };
+  }
+
+  /** Mover un cliente a otra hoja abierta (o a una nueva). */
+  function moveDialog(order, fromLoad, onDone) {
+    const targets = openLoads().filter((l) => !fromLoad || l.id !== fromLoad.id);
+    const ordersById = byIdMap(S.orders);
+    const sh = openSheet(`<div class="row"><h2 class="grow">Mover a ${esc(order.clientName)}</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      <div class="results">${targets.map((l) => { const u = Loads.usage(l, ordersById, S.config);
+        return `<button class="result" data-to="${esc(l.id)}"><b>${esc(Loads.labelOf(l))}</b> · ${esc(l.sellerName)} · ${esc(l.route || '')} <span class="muted">(${nf0.format(u.used)}/${nf0.format(u.limit)} · ${u.clients} clientes)</span></button>`; }).join('')}
+        <button class="result" data-to="__new"><b>＋ Hoja nueva</b> <span class="muted">(${esc(order.sellerName)} · ${esc(order.route || (fromLoad && fromLoad.route) || '')})</span></button></div>`);
+    sh.el.onclick = async (e) => {
+      const b = e.target.closest('[data-to]'); if (!b) return;
+      const target = b.dataset.to === '__new' ? null : S.loads.find((l) => l.id === b.dataset.to);
+      const r = Loads.moveOrder(order, fromLoad, target, { sellers: S.sellers, config: S.config });
+      await saveDocs('loads', r.loads.map((l) => (l.orderIds.length || !fromLoad || l.id !== fromLoad.id ? l : { ...l, deleted: true })));
+      await saveOrder(r.order);
+      sh.close(); toast(order.clientName + ' movido', 'ok'); onDone && onDone();
+    };
+  }
+
+  function mergeDialog(load, onDone) {
+    const ordersById = byIdMap(S.orders);
+    const others = openLoads().filter((l) => l.id !== load.id);
+    const sh = openSheet(`<div class="row"><h2 class="grow">Fusionar con otra hoja</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      <p class="muted">Los clientes de la hoja elegida pasan a esta (ej. Luis R. + Fanny A. en BARRIOS). Sobre cada cliente se verá la inicial de su vendedor.</p>
+      ${others.length ? `<div class="results">${others.map((l) => { const u = Loads.usage(l, ordersById, S.config);
+        return `<button class="result" data-src="${esc(l.id)}"><b>${esc(Loads.labelOf(l))}</b> · ${esc(l.sellerName)} · ${esc(l.route || '')} <span class="muted">(${nf0.format(u.used)} ${u.measure}, ${u.clients} clientes)</span></button>`; }).join('')}</div>`
+      : '<p>No hay otras hojas abiertas.</p>'}`);
+    sh.el.onclick = async (e) => {
+      const b = e.target.closest('[data-src]'); if (!b) return;
+      const src = S.loads.find((l) => l.id === b.dataset.src);
+      const u1 = Loads.usage(load, ordersById, S.config), u2 = Loads.usage(src, ordersById, S.config);
+      if (u1.used + u2.used > u1.limit || u1.clients + u2.clients > u1.maxClients) {
+        if (!confirm(`La hoja fusionada quedaría con ${nf0.format(u1.used + u2.used)} ${u1.measure} y ${u1.clients + u2.clients} clientes (tope ${u1.limit} / ${u1.maxClients}). ¿Fusionar igual?`)) return;
+      }
+      const r = Loads.merge(load, src, { orders: S.orders, sellers: S.sellers, config: S.config });
+      await saveDocs('loads', [r.target, r.source]);
+      await saveDocs('orders', r.orders);
+      sh.close(); toast('Hojas fusionadas', 'ok'); onDone && onDone();
+    };
+  }
+
+  function renderLoadDetail(root, load) {
     const ordersById = byIdMap(S.orders);
     const os = Loads.loadOrders(load, ordersById);
     const u = Loads.usage(load, ordersById, S.config);
-    const approved = load.status === 'aprobada';
-    readonly = readonly || approved;
-    const edit = !readonly && U().editQty;
+    const st = Loads.statusOf(load, S.config);
+    const closed = Loads.isClosed(load);
+    const editableLoad = !st.locked && !closed;
+    const edit = editableLoad && U().editQty;
     const m = Matrix.build(os, 'bultos', { keepOrder: true, money: false, rubros: rubros(), productRank: productRank() });
-    const short = readonly ? [] : Loads.shortages(os, S.products);
+    const short = closed ? [] : Loads.shortages(os, S.products);
     const shortIds = new Set(short.map((x) => x.product.id));
-    const seller = sellerById(load.sellerId);
-    const routes = (seller && seller.routes && seller.routes.length ? seller.routes : S.config.routes) || [];
+    const routes = [...new Set((S.config.routes || []).concat(load.route ? [load.route] : []))];
     let lastCat = null;
     const colspan = m.cols.length + 3;
     const body = m.rows.map((r) => {
       let head = '';
-      if (r.category !== lastCat) { lastCat = r.category; head = `<tr class="cat-row"><td class="sticky-col">${esc(r.category)}</td><td colspan="${colspan - 1}"></td></tr>`; }
+      if (r.category !== lastCat) { lastCat = r.category; head = `<tr class="cat-row"><td class="sticky-col">${esc(r.category)}</td><td colspan="${colspan - 2}"></td><td class="tot"></td></tr>`; }
       const kind = r.um === 'CJ' ? 'cajas' : 'unidades';
       return head + `<tr class="${shortIds.has(r.productId) ? 'short' : ''}">
         <td class="sticky-col" title="${esc(r.code + ' · ' + r.name + ' ' + r.presentation)}"><span class="mono muted">${esc(r.code)}</span> ${esc(r.name)} <b>${esc(r.presentation)}</b></td>
@@ -159,18 +230,21 @@
     }).join('');
     const foot = m.footer.map((f) => `<tr><td class="sticky-col">${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="n">${nf0.format(v)}</td>`).join('')}<td class="n tot">${nf0.format(f.total)}</td></tr>`).join('');
     const totalUSD = os.reduce((a, o) => a + Matrix.orderTotals(o).monto, 0);
+    const initialsRow = `<tr class="ini-row"><th class="sticky-col">Vendedor →</th><th></th>${m.cols.map((c) => `<th>${esc(Loads.initials(c.order.sellerName))}</th>`).join('')}<th class="tot"></th></tr>`;
 
     root.innerHTML = `
       <div class="toolbar no-print">
-        <button class="btn" id="dBack">← ${approved ? 'Archivo' : 'Hojas de carga'}</button>
-        <div class="grow"><h2 style="margin:0">${approved ? 'Carga ' + esc(Loads.loadCode(load)) : 'Hoja en armado'} · ${esc(load.sellerName)}</h2>
-          <div class="muted"><span class="status ${approved ? 'aprobada' : 'espera'}">${esc(Loads.STATUS_LABEL[load.status])}</span>
-          ${approved ? ' · aprobada ' + esc(new Date(load.approvedAt).toLocaleString('es-VE')) : ''}</div></div>
+        <button class="btn" id="dBack">← ${closed ? 'Archivo' : 'Hojas de carga'}</button>
+        <div class="grow"><h2 style="margin:0">${esc(Loads.labelOf(load))} ${load.number ? `<span class="muted mono">${esc(Loads.loadCode(load))}</span>` : ''} ${sellerTags(load)}</h2>
+          <div class="muted">${esc(load.sellerName)} · pedidos del ${esc(Loads.orderDateRange(os) || '—')}${load.closedAt ? ' · cerrada ' + esc(new Date(load.closedAt).toLocaleString('es-VE')) : ''}</div></div>
+        <label class="field"><span>Estado de la carga</span><select id="dStatus" class="select status-sel ${st.locked ? 'locked' : ''}">
+          ${Loads.statuses(S.config).map((x) => `<option value="${esc(x.id)}" ${x.id === st.id ? 'selected' : ''}>${x.locked ? '🔒 ' : ''}${esc(x.name)}</option>`).join('')}</select></label>
       </div>
       <div class="toolbar">
-        <label class="field"><span>Ruta</span><select id="dRoute" class="select" ${readonly ? 'disabled' : ''}>
-          ${routes.concat(load.route && !routes.includes(load.route) ? [load.route] : []).map((r) => `<option ${r === load.route ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
-        <label class="field"><span>Despachador</span><select id="dDisp" class="select" ${readonly ? 'disabled' : ''}>
+        <label class="field"><span>Código</span><input id="dLabel" class="input mono" maxlength="24" value="${esc(load.label || '')}" placeholder="${esc(Loads.autoLabel(load))}"></label>
+        <label class="field"><span>Fecha de la carga</span><input id="dDate" type="date" class="input" value="${esc(load.date || '')}" title="Si la dejas vacía, se toma la fecha del cierre"></label>
+        <label class="field"><span>Ruta</span><select id="dRoute" class="select">${routes.map((r) => `<option ${r === load.route ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
+        <label class="field"><span>Despachador</span><select id="dDisp" class="select">
           <option value="">— Seleccionar —</option>
           ${(S.config.dispatchers || []).map((d) => `<option value="${esc(d.id)}" ${d.id === load.dispatcherId ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
         <div class="grow" style="min-width:240px">
@@ -178,60 +252,81 @@
           ${bar(u.pctClients, u.clients > u.maxClients, `${u.clients} / ${u.maxClients} clientes`)}
         </div>
       </div>
-      ${short.length ? `<div class="hint warn">⚠ Inventario insuficiente: ${short.map((x) => `<b>${esc(x.product.name)}</b> (pedido ${fmtStock(x.need, x.product.unitsPerBox, x.product.sellBy)}, hay ${fmtStock(x.stock, x.product.unitsPerBox, x.product.sellBy)})`).join(' · ')}. Ajusta las cantidades con ✎.</div>` : ''}
+      ${st.locked && !closed ? `<div class="hint">🔒 <b>${esc(st.name)}</b>: los pedidos ya no se pueden editar. Para modificarlos, vuelve la hoja a un estado sin 🔒.</div>` : ''}
+      ${short.length ? `<div class="hint warn">⚠ Inventario insuficiente: ${short.map((x) => `<b>${esc(x.product.name)}</b> (pedido ${fmtStock(x.need, x.product.unitsPerBox, x.product.sellBy)}, hay ${fmtStock(x.stock, x.product.unitsPerBox, x.product.sellBy)})`).join(' · ')}. Ajusta con ✎.</div>` : ''}
       <div class="toolbar no-print">
-        ${readonly ? '' : `<button class="btn ${edit ? 'btn-accent' : ''}" id="dEdit">${edit ? '✓ Terminar edición' : '✎ Editar cantidades'}</button>`}
+        ${editableLoad ? `<button class="btn ${edit ? 'btn-accent' : ''}" id="dEdit">${edit ? '✓ Terminar edición' : '✎ Editar cantidades'}</button>
+          <button class="btn" id="dMerge">⇄ Fusionar con otra hoja</button>` : ''}
         <button class="btn" id="dPrint">🖨 Hoja de carga</button>
         <button class="btn" id="dNotes">🧾 Notas de entrega</button>
         <button class="btn" id="dCopy">📋 Copiar para Excel</button>
-        ${readonly ? '' : `<button class="btn btn-ok" id="dApprove" ${os.length ? '' : 'disabled'}>✓ Aprobar carga</button>`}
+        ${editableLoad && !os.length ? '<button class="btn btn-danger" id="dDel">Eliminar hoja vacía</button>' : ''}
       </div>
       ${os.length ? `<div class="table-wrap"><table class="grid">
-        <thead><tr><th class="sticky-col">Producto</th><th>UM</th>
+        <thead>${initialsRow}<tr><th class="sticky-col">Producto</th><th>UM</th>
           ${m.cols.map((c, i) => `<th class="client" title="${esc(c.client)}">${i + 1}. ${esc(c.client)}</th>`).join('')}<th class="tot">TOTAL</th></tr></thead>
-        <tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>` : '<div class="empty card"><strong>Hoja vacía</strong></div>'}
-      <div class="section-title">Clientes de la hoja · total ${usd(totalUSD)}</div>
+        <tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>` : '<div class="empty card"><strong>Hoja vacía</strong>Mueve clientes aquí con ⇄ desde otra hoja o desde "Clientes en espera".</div>'}
+      <div class="section-title">Clientes de la hoja (el orden es el de las columnas) · total ${usd(totalUSD)}</div>
       <div class="card"><table class="inv">
-        <thead><tr><th>#</th><th>Cliente</th><th>Bultos</th><th>Unid.</th><th>Monto</th><th>${approved ? 'Nota' : ''}</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Orden</th><th>Cliente</th><th>Vend.</th><th>Bultos</th><th>Unid.</th><th>Monto</th><th>${closed ? 'Nota' : ''}</th><th></th></tr></thead>
         <tbody>${os.map((o, i) => { const t = Matrix.orderTotals(o); return `<tr>
-          <td>${i + 1}</td><td><b>${esc(o.clientName)}</b>${o.officeEdited ? ' <span class="status abierto">editado</span>' : ''}${o.notes ? `<div class="muted">📝 ${esc(o.notes)}</div>` : ''}</td>
+          <td>${i + 1}</td>
+          <td style="white-space:nowrap">${editableLoad ? `<button class="btn btn-sm" data-left="${i}" ${i ? '' : 'disabled'} aria-label="Mover a la izquierda">←</button><button class="btn btn-sm" data-right="${i}" ${i < os.length - 1 ? '' : 'disabled'} aria-label="Mover a la derecha">→</button>` : ''}</td>
+          <td><b>${esc(o.clientName)}</b> <span class="muted">${esc(fmtDate(o.routeDate))}</span>
+            ${o.officeEdited ? ' <span class="status abierto">editado oficina</span>' : ''}${o.sellerEdited ? ' <span class="status en_espera">modificado por vendedor</span>' : ''}
+            ${o.notes ? `<div class="muted">📝 ${esc(o.notes)}</div>` : ''}</td>
+          <td><span class="tag">${esc(Loads.initials(o.sellerName))}</span></td>
           <td class="n" data-l="Bultos">${t.bultos}</td><td class="n" data-l="Unid.">${t.totalUnidades}</td><td class="n" data-l="Monto">${usd(t.monto)}</td>
           <td class="mono">${o.noteNumber ? esc(Loads.noteCode(o.noteNumber)) : ''}</td>
-          <td style="white-space:nowrap">${readonly ? `<button class="btn btn-sm" data-note="${esc(o.id)}">🧾</button>` : `<button class="btn btn-sm" data-edit="${esc(o.id)}">Editar</button>
-            <button class="btn btn-sm" data-hold="${esc(o.id)}" title="Dejar para otra carga">⏸ Espera</button>`}</td></tr>`; }).join('')}</tbody></table></div>`;
+          <td style="white-space:nowrap">${closed ? `<button class="btn btn-sm" data-note="${esc(o.id)}">🧾</button>` : `<button class="btn btn-sm" data-edit="${esc(o.id)}">${editableLoad ? 'Editar' : 'Ver'}</button>`}
+            ${editableLoad ? `<button class="btn btn-sm" data-move="${esc(o.id)}">⇄ Mover</button>
+            <button class="btn btn-sm" data-hold="${esc(o.id)}" title="Dejar para otra carga">⏸ Espera</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
 
-    const refresh = () => renderLoadDetail(root, S.loads.find((x) => x.id === load.id) || load, ro);
-    $('#dBack').onclick = () => { U().loadId = null; U().archiveId = null; U().editQty = false; PV.render(); };
-    const ctx = () => ({ config: S.config, usage: Loads.usage(load, byIdMap(S.orders), S.config), draft: !approved, clientsById: byIdMap(S.clients), load, productRank: productRank() });
-    $('#dPrint').onclick = () => Print.printLoadSheet(load, Loads.loadOrders(load, byIdMap(S.orders)), ctx());
-    $('#dNotes').onclick = () => Print.printNotes(Loads.loadOrders(load, byIdMap(S.orders)), ctx());
+    const cur = () => S.loads.find((x) => x.id === load.id) || load;
+    const refresh = () => renderLoadDetail(root, cur());
+    const saveLoad = async (patch) => { await saveDocs('loads', { ...cur(), ...patch }); refresh(); };
+    $('#dBack').onclick = () => {
+      U().loadId = null; U().archiveId = null; U().editQty = false;
+      if (closed && !location.hash.includes('archivo')) location.hash = '#/oficina/archivo'; else PV.render();
+    };
+    const ctx = () => ({ config: S.config, usage: Loads.usage(cur(), byIdMap(S.orders), S.config), draft: !cur().number, clientsById: byIdMap(S.clients),
+      load: cur(), productRank: productRank(), statusName: stName(cur()) });
+    $('#dPrint').onclick = () => Print.printLoadSheet(cur(), Loads.loadOrders(cur(), byIdMap(S.orders)), ctx());
+    $('#dNotes').onclick = () => Print.printNotes(Loads.loadOrders(cur(), byIdMap(S.orders)), ctx());
     $('#dCopy').onclick = async () => {
       const ok = await copyText(Matrix.toDelimited(m, { sep: '\t', decimal: S.settings.csvDecimal }));
       toast(ok ? 'Hoja copiada: pégala en Excel' : 'No se pudo copiar', ok ? 'ok' : 'err');
     };
-    if (readonly) {
-      root.onclick = (e) => { const n = e.target.closest('[data-note]'); if (n) Print.printNotes([orderById(n.dataset.note)], ctx()); };
-      return;
-    }
-    $('#dRoute').onchange = async (e) => { await saveDocs('loads', { ...load, route: e.target.value }); refresh(); };
-    $('#dDisp').onchange = async (e) => {
+    $('#dStatus').onchange = (e) => changeStatus(cur(), e.target.value, root);
+    $('#dLabel').onchange = (e) => saveLoad({ label: e.target.value.trim().toUpperCase() });
+    $('#dDate').onchange = (e) => saveLoad({ date: e.target.value });
+    $('#dRoute').onchange = (e) => saveLoad({ route: e.target.value });
+    $('#dDisp').onchange = (e) => {
       const d = (S.config.dispatchers || []).find((x) => x.id === e.target.value);
-      await saveDocs('loads', { ...load, dispatcherId: d ? d.id : '', dispatcherName: d ? d.name : '' }); refresh();
+      saveLoad({ dispatcherId: d ? d.id : '', dispatcherName: d ? d.name : '' });
     };
-    $('#dEdit').onclick = () => { U().editQty = !U().editQty; refresh(); };
-    $('#dApprove').onclick = () => approveLoad(load, root);
+    const de = $('#dEdit'); if (de) de.onclick = () => { U().editQty = !U().editQty; refresh(); };
+    const dm = $('#dMerge'); if (dm) dm.onclick = () => mergeDialog(cur(), refresh);
+    const dd = $('#dDel'); if (dd) dd.onclick = async () => { await saveDocs('loads', { ...cur(), deleted: true }); U().loadId = null; PV.render(); };
     root.onclick = async (e) => {
-      const ed = e.target.closest('[data-edit]');
-      if (ed) { orderEditor(orderById(ed.dataset.edit), refresh); return; }
+      const n = e.target.closest('[data-note]'); if (n) { Print.printNotes([orderById(n.dataset.note)], ctx()); return; }
+      const ed = e.target.closest('[data-edit]'); if (ed) { orderEditor(orderById(ed.dataset.edit), refresh); return; }
+      const mv = e.target.closest('[data-move]'); if (mv) { moveDialog(orderById(mv.dataset.move), cur(), () => { if (!S.loads.find((x) => x.id === load.id)) { U().loadId = null; PV.render(); } else refresh(); }); return; }
+      const lr = e.target.closest('[data-left],[data-right]');
+      if (lr) {
+        const ids = Loads.loadOrders(cur(), byIdMap(S.orders)).map((o) => o.id);
+        const i = +(lr.dataset.left || lr.dataset.right), j = lr.dataset.left ? i - 1 : i + 1;
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        await saveLoad({ orderIds: ids }); return;
+      }
       const h = e.target.closest('[data-hold]');
       if (h) {
         const o = orderById(h.dataset.hold);
         if (!confirm(`¿Dejar a ${o.clientName} para otra carga? Su pedido queda en "Clientes en espera".`)) return;
-        const r = Loads.hold(load, o);
+        const r = Loads.hold(cur(), o);
         await saveOrder(r.order);
-        await saveDocs('loads', r.load.orderIds.length ? r.load : { ...r.load, deleted: true });
-        if (!r.load.orderIds.length) { U().loadId = null; PV.render(); } else refresh();
-        toast(o.clientName + ' pasó a espera', 'ok');
+        await saveDocs('loads', r.load);
+        refresh(); toast(o.clientName + ' pasó a espera', 'ok');
       }
     };
     root.onchange = async (e) => {
@@ -239,7 +334,6 @@
       const key = [inp.dataset.oid, inp.dataset.pid, inp.dataset.kind].join('|');
       await setLineQty(orderById(inp.dataset.oid), inp.dataset.pid, inp.dataset.kind, int(inp.value));
       refresh();
-      // devolver el foco a la misma celda para seguir editando con Tab
       const next = [...root.querySelectorAll('.cell-in')].find((x) => [x.dataset.oid, x.dataset.pid, x.dataset.kind].join('|') === key);
       if (next) next.focus();
     };
@@ -247,7 +341,7 @@
 
   /** Cambia la cantidad de una línea desde la oficina (queda marcado como editado). */
   async function setLineQty(o, pid, kind, value) {
-    if (!o || o.status === 'despachado') return;
+    if (!Loads.editable(o)) { toast('Pedido bloqueado: la carga ya fue aprobada', 'err'); return; }
     const p = productById(pid);
     const line = o.lines[pid] || (p ? {
       code: p.code, name: p.name, presentation: p.presentation, category: p.category,
@@ -257,48 +351,55 @@
     const lines = { ...o.lines };
     lines[pid] = { ...line, [kind]: Math.max(0, Math.min(99999, value)) };
     if (!lines[pid].cajas && !lines[pid].unidades) delete lines[pid];
-    await saveOrder({ ...o, lines, officeEdited: true });
+    await saveOrder({ ...o, lines, officeEdited: DB.now() });
   }
 
-  function approveLoad(load, root) {
+  /** Cambio de estado con las confirmaciones y efectos que correspondan. */
+  async function changeStatus(load, statusId, root) {
+    const cur = Loads.statusOf(load, S.config);
+    const st = Loads.statuses(S.config).find((x) => x.id === statusId);
+    if (!st || st.id === cur.id) return;
     const ordersById = byIdMap(S.orders);
     const os = Loads.loadOrders(load, ordersById);
     const u = Loads.usage(load, ordersById, S.config);
-    const disp = (S.config.dispatchers || []).find((d) => d.id === load.dispatcherId);
-    if (!disp) { toast('Selecciona el despachador antes de aprobar', 'err'); $('#dDisp').focus(); return; }
-    const warn = u.over ? `<div class="hint warn">⚠ La hoja supera el tope (${nf0.format(u.used)} / ${nf0.format(u.limit)} ${u.measure}, ${u.clients} / ${u.maxClients} clientes).</div>` : '';
-    const sh = openSheet(`
-      <div class="row"><h2 class="grow">Aprobar carga</h2><button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
-      <p>${esc(load.sellerName)} · Ruta <b>${esc(load.route || '—')}</b> · Despachador <b>${esc(disp.name)}</b></p>
-      <p>${os.length} clientes · ${nf0.format(u.used)} ${u.measure}</p>${warn}
-      <p class="muted">Al aprobar: se numera la carga y las notas de entrega, se descuenta el inventario, los pedidos quedan cerrados y la hoja pasa al Archivo.</p>
-      <div class="actions"><button class="btn btn-ok" id="aOk">✓ Aprobar y cerrar carga</button><button class="btn" data-close>Cancelar</button></div>`);
-    $('#aOk', sh.el).onclick = async () => {
-      const r = Loads.approve(load, { orders: S.orders, products: S.products, config: S.config }, disp);
-      await saveDocs('config', r.config);
-      await saveDocs('orders', r.orders);
-      await saveDocs('products', r.products);
-      await saveDocs('loads', r.load);
-      U().editQty = false;
-      sh.el.innerHTML = `<h2>✓ Carga ${esc(Loads.loadCode(r.load))} aprobada</h2>
-        <p>Notas de entrega ${esc(Loads.noteCode(r.load.firstNote))} a ${esc(Loads.noteCode(r.load.lastNote))}.</p>
+    const back = () => renderLoadDetail(root, S.loads.find((x) => x.id === load.id) || load);
+    const closing = st.closing && !Loads.isClosed(load);
+    if ((st.locked || st.closing) && !os.length) { toast('La hoja está vacía', 'err'); return back(); }
+    if (closing) {
+      if (!load.dispatcherId) { toast('Selecciona el despachador antes de cerrar la carga', 'err'); return back(); }
+      const fecha = load.date || today();
+      if (!confirm(`${st.name}: se numeran las notas de entrega, se descuenta el inventario y la hoja pasa al Archivo.\n\nFecha de la carga: ${fecha}${u.over ? `\n\n⚠ Supera el tope (${u.used}/${u.limit} ${u.measure}, ${u.clients}/${u.maxClients} clientes).` : ''}\n\n¿Continuar?`)) return back();
+    } else if (!st.closing && Loads.isClosed(load)) {
+      if (!confirm(`Reabrir la carga como "${st.name}": el inventario descontado se devuelve y los pedidos ${st.locked ? 'siguen bloqueados' : 'se podrán editar de nuevo'}. Los números de carga y notas se conservan. ¿Continuar?`)) return back();
+    } else if (st.locked && !cur.locked) {
+      if (!confirm(`${st.name}: vendedores y oficina ya no podrán modificar estos ${os.length} pedidos. ¿Continuar?`)) return back();
+    }
+    const r = Loads.setStatus(load, statusId, { orders: S.orders, products: S.products, config: S.config }, { today: today() });
+    if (r.config) await saveDocs('config', r.config);
+    await saveDocs('orders', r.orders);
+    await saveDocs('products', r.products);
+    await saveDocs('loads', r.load);
+    U().editQty = false;
+    toast(`Estado: ${st.name}`, 'ok');
+    if (closing) {
+      back();
+      const sh = openSheet(`<h2>✓ ${esc(Loads.labelOf(r.load))} · ${esc(Loads.loadCode(r.load))}</h2>
+        <p>${esc(st.name)} · fecha ${esc(r.load.date)} · notas ${esc(Loads.noteCode(r.load.firstNote))} a ${esc(Loads.noteCode(r.load.lastNote))}.</p>
         <div class="actions" style="flex-direction:column">
           <button class="btn btn-primary" id="pSheet">🖨 Imprimir hoja de carga</button>
           <button class="btn" id="pNotes">🧾 Imprimir notas de entrega (original + copia)</button>
-          <button class="btn" data-close>Listo</button></div>`;
-      const ctx = { config: S.config, usage: Loads.usage(r.load, byIdMap(S.orders), S.config), clientsById: byIdMap(S.clients), load: r.load, productRank: productRank() };
+          <button class="btn" data-close>Listo</button></div>`);
+      const ctx = { config: S.config, usage: Loads.usage(r.load, byIdMap(S.orders), S.config), clientsById: byIdMap(S.clients), load: r.load, productRank: productRank(), statusName: st.name };
       $('#pSheet', sh.el).onclick = () => Print.printLoadSheet(r.load, r.orders, ctx);
       $('#pNotes', sh.el).onclick = () => Print.printNotes(r.orders, ctx);
-      U().loadId = r.load.id;
-      renderLoadDetail(root, r.load);
-      PV.runSync(false);
-    };
+    } else back();
+    PV.runSync(false);
   }
 
   /* ------------------------ Editor de pedido (oficina) ------------------------ */
   function orderEditor(o, onDone) {
     if (!o) return;
-    const locked = o.status === 'despachado';
+    const locked = !Loads.editable(o);
     const draw = (sh) => {
       const cur = orderById(o.id) || o;
       const lines = Object.entries(cur.lines).map(([pid, l]) => ({ pid, l, t: Matrix.lineTotals(l), p: productById(pid) }))
@@ -316,19 +417,21 @@
         <tr class="total-row"><td><b>TOTAL</b> · ${tot.cajas} cj + ${tot.unidades} un · ${tot.bultos} bultos</td><td></td><td class="num">${usd(tot.monto)}</td></tr></table>`;
     };
     const sh = openSheet(`
-      <div class="row"><div class="grow"><h2>${esc(o.clientName)}</h2><div class="muted">${esc(o.sellerName)} · Ruta ${esc(o.route || '—')} · ${esc(Loads.ORDER_LABEL[o.status])}</div></div>
+      <div class="row"><div class="grow"><h2>${esc(o.clientName)}</h2><div class="muted">${esc(o.sellerName)} · Ruta ${esc(o.route || '—')} · ${esc(fmtDate(o.routeDate))} · ${esc(Loads.orderLabel(o))}</div></div>
         <button class="icon-btn" data-close aria-label="Cerrar">×</button></div>
+      ${locked ? '<div class="hint warn">🔒 La carga de este pedido ya fue aprobada: no se puede modificar.</div>' : ''}
       <div id="oeBody"></div>
       ${locked ? '' : `<label class="field" style="margin-top:12px"><span>Agregar producto</span>
-        <input id="oeSearch" class="input" placeholder="Buscar por nombre o código…" autocomplete="off"></label><div id="oeResults" class="results"></div>`}
+        <input id="oeSearch" class="input" placeholder="Buscar por nombre o código…" autocomplete="off"></label><div id="oeResults" class="results"></div>
+        <label class="field" style="margin-top:12px"><span>Nota para despacho</span><input id="oeNotes" class="input" maxlength="300" value="${esc(o.notes || '')}"></label>`}
       <div class="actions"><button class="btn btn-primary" data-close>Listo</button></div>`, { wide: true });
     draw(sh);
     // La vista de fondo se actualiza en cada cambio (la hoja queda abierta encima)
     const changed = () => { draw(sh); if (onDone) onDone(); };
     sh.el.addEventListener('change', async (e) => {
-      const inp = e.target.closest('.mini-in'); if (!inp) return;
-      await setLineQty(orderById(o.id), inp.dataset.pid, inp.dataset.kind, int(inp.value));
-      changed();
+      const inp = e.target.closest('.mini-in');
+      if (inp) { await setLineQty(orderById(o.id), inp.dataset.pid, inp.dataset.kind, int(inp.value)); changed(); return; }
+      if (e.target.id === 'oeNotes') { await saveOrder({ ...orderById(o.id), notes: e.target.value.slice(0, 300), officeEdited: DB.now() }); changed(); }
     });
     const s = $('#oeSearch', sh.el);
     if (s) s.oninput = () => {
@@ -376,7 +479,7 @@
         <tfoot>${m.footer.map((f) => `<tr><td class="sticky-col">${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="n">${f.money ? nf2.format(v) : nf0.format(v)}</td>`).join('')}<td class="n tot">${f.money ? nf2.format(f.total) : nf0.format(f.total)}</td></tr>`).join('')}</tfoot></table></div>
         <div class="section-title">Detalle por cliente</div>
         <div class="card"><table class="inv">${source.map((o) => `<tr><td><b>${esc(o.clientName)}</b><div class="muted">${esc(o.sellerName)} · ${esc(o.route || '')}</div></td>
-          <td><span class="status ${o.status}">${esc(Loads.ORDER_LABEL[o.status])}</span></td><td class="n">${usd(Matrix.orderTotals(o).monto)}</td>
+          <td><span class="status ${o.status}">${esc(Loads.orderLabel(o))}</span></td><td class="n">${usd(Matrix.orderTotals(o).monto)}</td>
           <td><button class="btn btn-sm" data-edit="${esc(o.id)}">Ver / editar</button></td></tr>`).join('')}</table></div>`
       : `<div class="empty card"><strong>Sin pedidos</strong>No hay pedidos para ${esc(fmtDate(date))}.</div>`}`;
     $('#oDate').onchange = (e) => { U().date = e.target.value || today(); renderOrders(root); };
@@ -393,12 +496,14 @@
 
   /* ============================== ARCHIVO ============================== */
   function renderArchive(root) {
-    if (U().archiveId) { const l = S.loads.find((x) => x.id === U().archiveId); if (l) return renderLoadDetail(root, l, true); U().archiveId = null; }
-    const f = U().arch || (U().arch = { from: '', to: '', seller: '', route: '', disp: '' });
-    const list = S.loads.filter((l) => l.status === 'aprobada' &&
-      (!f.from || String(l.approvedAt).slice(0, 10) >= f.from) && (!f.to || String(l.approvedAt).slice(0, 10) <= f.to) &&
-      (!f.seller || l.sellerId === f.seller) && (!f.route || l.route === f.route) && (!f.disp || l.dispatcherId === f.disp))
-      .sort((a, b) => (b.number || 0) - (a.number || 0));
+    if (U().archiveId) { const l = S.loads.find((x) => x.id === U().archiveId); if (l) return renderLoadDetail(root, l); U().archiveId = null; }
+    const f = U().arch || (U().arch = { from: '', to: '', seller: '', route: '', disp: '', status: '' });
+    const dateOf = (l) => String(l.date || l.closedAt || l.approvedAt || '').slice(0, 10);
+    const list = S.loads.filter((l) => Loads.isClosed(l) &&
+      (!f.from || dateOf(l) >= f.from) && (!f.to || dateOf(l) <= f.to) &&
+      (!f.seller || Loads.sellerIdsOf(l).includes(f.seller)) && (!f.route || l.route === f.route) &&
+      (!f.disp || l.dispatcherId === f.disp) && (!f.status || Loads.statusOf(l, S.config).id === f.status))
+      .sort((a, b) => dateOf(b).localeCompare(dateOf(a)) || (b.number || 0) - (a.number || 0));
     const sum = list.reduce((a, l) => { const t = l.totals || {}; a.c += t.clients || 0; a.b += t.bultos || 0; a.u += t.totalUnidades || 0; a.m += t.monto || 0; return a; }, { c: 0, b: 0, u: 0, m: 0 });
     const opt = (arr, cur) => arr.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('');
     root.innerHTML = `
@@ -408,6 +513,7 @@
         <label class="field"><span>Vendedor</span><select class="select" data-f="seller"><option value="">Todos</option>${opt(S.sellers.map((s) => [s.id, s.name]), f.seller)}</select></label>
         <label class="field"><span>Ruta</span><select class="select" data-f="route"><option value="">Todas</option>${opt((S.config.routes || []).map((r) => [r, r]), f.route)}</select></label>
         <label class="field"><span>Despachador</span><select class="select" data-f="disp"><option value="">Todos</option>${opt((S.config.dispatchers || []).map((d) => [d.id, d.name]), f.disp)}</select></label>
+        <label class="field"><span>Estado</span><select class="select" data-f="status"><option value="">Todos</option>${opt(Loads.statuses(S.config).filter((x) => x.closing).map((x) => [x.id, x.name]), f.status)}</select></label>
         <button class="btn" id="aCsv" ${list.length ? '' : 'disabled'}>⇩ Exportar CSV</button>
       </div>
       <div class="kpi-row">
@@ -417,22 +523,23 @@
         <div class="kpi"><small>Venta despachada</small><b>${usd(sum.m)}</b></div>
       </div>
       ${list.length ? `<div class="card" style="overflow:auto"><table class="inv">
-        <thead><tr><th>Carga</th><th>Fecha</th><th>Vendedor</th><th>Ruta</th><th>Despachador</th><th>Clientes</th><th>Bultos</th><th>Unid.</th><th>Monto</th><th>Notas</th><th></th></tr></thead>
+        <thead><tr><th>Código</th><th>Fecha</th><th>Estado</th><th>Vendedor(es)</th><th>Ruta</th><th>Despachador</th><th>Clientes</th><th>Bultos</th><th>Unid.</th><th>Monto</th><th>Notas</th><th></th></tr></thead>
         <tbody>${list.map((l) => { const t = l.totals || {}; return `<tr>
-          <td class="mono"><b>${esc(Loads.loadCode(l))}</b></td><td data-l="Fecha">${esc(new Date(l.approvedAt).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }))}</td>
+          <td><b class="mono">${esc(Loads.labelOf(l))}</b><div class="muted mono">${esc(Loads.loadCode(l))}</div></td><td data-l="Fecha">${esc(dateOf(l))}</td>
+          <td data-l="Estado"><span class="status aprobada">${esc(stName(l))}</span></td>
           <td data-l="Vendedor">${esc(l.sellerName)}</td><td data-l="Ruta">${esc(l.route || '')}</td><td data-l="Despachador">${esc(l.dispatcherName || '')}</td>
           <td class="n" data-l="Clientes">${t.clients || 0}</td><td class="n" data-l="Bultos">${nf0.format(t.bultos || 0)}</td><td class="n" data-l="Unid.">${nf0.format(t.totalUnidades || 0)}</td>
           <td class="n" data-l="Monto">${usd(t.monto)}</td><td class="mono" data-l="Notas">${l.firstNote ? esc(Loads.noteCode(l.firstNote) + '–' + Loads.noteCode(l.lastNote)) : ''}</td>
           <td style="white-space:nowrap"><button class="btn btn-sm" data-view="${esc(l.id)}">Ver</button></td></tr>`; }).join('')}</tbody></table></div>`
-      : '<div class="empty card"><strong>Sin cargas aprobadas</strong>con esos filtros.</div>'}`;
+      : '<div class="empty card"><strong>Sin cargas cerradas</strong>con esos filtros.</div>'}`;
     $('#aFilters').onchange = (e) => { const k = e.target.dataset.f; if (k) { f[k] = e.target.value; renderArchive(root); } };
     root.onclick = (e) => { const v = e.target.closest('[data-view]'); if (v) { U().archiveId = v.dataset.view; renderArchive(root); } };
     $('#aCsv').onclick = () => {
       const sep = S.settings.csvSep, d = S.settings.csvDecimal;
       const n = (v) => { const s = Number(v || 0).toFixed(2); return d === ',' ? s.replace('.', ',') : s; };
       const q = (v) => { let s = String(v == null ? '' : v); if (/^[=+\-@]/.test(s)) s = "'" + s; return s.includes(sep) || s.includes('"') ? '"' + s.replace(/"/g, '""') + '"' : s; };
-      const rows = [['CARGA', 'FECHA', 'VENDEDOR', 'RUTA', 'DESPACHADOR', 'CLIENTES', 'CAJAS', 'UNID_SUELTAS', 'BULTOS', 'TOTAL_UNIDADES', 'MONTO_USD', 'NOTA_DESDE', 'NOTA_HASTA'].join(sep)];
-      list.forEach((l) => { const t = l.totals || {}; rows.push([Loads.loadCode(l), String(l.approvedAt).slice(0, 10), q(l.sellerName), q(l.route), q(l.dispatcherName), t.clients || 0, t.cajas || 0, t.unidades || 0, t.bultos || 0, t.totalUnidades || 0, n(t.monto), l.firstNote ? Loads.noteCode(l.firstNote) : '', l.lastNote ? Loads.noteCode(l.lastNote) : ''].join(sep)); });
+      const rows = [['CODIGO', 'CARGA', 'FECHA', 'ESTADO', 'VENDEDORES', 'RUTA', 'DESPACHADOR', 'CLIENTES', 'CAJAS', 'UNID_SUELTAS', 'BULTOS', 'TOTAL_UNIDADES', 'MONTO_USD', 'NOTA_DESDE', 'NOTA_HASTA'].join(sep)];
+      list.forEach((l) => { const t = l.totals || {}; rows.push([q(Loads.labelOf(l)), Loads.loadCode(l), dateOf(l), q(stName(l)), q(l.sellerName), q(l.route), q(l.dispatcherName), t.clients || 0, t.cajas || 0, t.unidades || 0, t.bultos || 0, t.totalUnidades || 0, n(t.monto), l.firstNote ? Loads.noteCode(l.firstNote) : '', l.lastNote ? Loads.noteCode(l.lastNote) : ''].join(sep)); });
       saveFile('archivo_cargas_' + today() + '.csv', '\uFEFF' + rows.join('\r\n'), 'text/csv;charset=utf-8');
     };
   }
@@ -917,6 +1024,20 @@
               <option value="bultos" ${L.measure === 'bultos' ? 'selected' : ''}>Bultos (cajas + unid. sueltas)</option>
               <option value="unidades" ${L.measure === 'unidades' ? 'selected' : ''}>Unidades totales</option></select></label>
             <label class="field"><span>Máx. clientes por hoja</span><input id="lMax" class="input" inputmode="numeric" value="${L.maxClients}"></label>
+          </div>
+          <label class="field" style="margin-top:10px"><span>Columnas en blanco al final de la hoja impresa (separadas por coma)</span>
+            <input id="lExtra" class="input" value="${esc((c.sheetExtraCols || ['VACÍOS', 'DEVOLUCIÓN']).join(', '))}" placeholder="VACÍOS, DEVOLUCIÓN"></label></section>
+
+        <section class="card card-pad"><h3>Estados de la carga</h3>
+          <p class="muted">Tú defines los estados y su orden. <b>🔒 Bloquea</b>: desde ese estado vendedores y oficina ya no pueden editar los pedidos.
+            <b>Cierra la carga</b>: numera las notas de entrega, descuenta el inventario, fija la fecha de la carga y la pasa al Archivo.</p>
+          <div class="list-edit" id="stEd">${Loads.statuses(c).map((x, i, arr) => `<div class="row wrap st-row" data-i="${i}">
+            <input class="input grow" data-st="name" value="${esc(x.name)}" maxlength="40">
+            <label class="chip-check"><input type="checkbox" data-st="locked" ${x.locked ? 'checked' : ''}> 🔒 Bloquea</label>
+            <label class="chip-check"><input type="checkbox" data-st="closing" ${x.closing ? 'checked' : ''}> Cierra la carga</label>
+            <button type="button" class="btn btn-sm" data-stup="${i}" ${i ? '' : 'disabled'}>↑</button>
+            <button type="button" class="btn btn-sm btn-danger" data-strm="${i}" ${arr.length > 2 ? '' : 'disabled'}>✕</button></div>`).join('')}
+            <div class="row"><input class="input grow" id="stNew" placeholder="Nuevo estado (ej. En ruta, Entregada, Liquidada)"><button type="button" class="btn btn-sm" id="stAdd">＋</button></div>
           </div></section>
 
         <section class="card card-pad"><h3>Rutas</h3>${listEditor('routesEd', c.routes || [], 'Nueva ruta')}</section>
@@ -962,6 +1083,36 @@
     const saveCfg = async (patch) => { await saveDocs('config', { ...S.config, ...patch }); renderSettings(root); toast('Guardado', 'ok'); };
     const lSave = () => saveCfg({ load: { limit: Math.max(1, int($('#lLimit').value)), maxClients: Math.max(1, int($('#lMax').value)), measure: $('#lMeasure').value } });
     ['#lLimit', '#lMax', '#lMeasure'].forEach((s) => { $(s).onchange = lSave; });
+    $('#lExtra').onchange = (e) => saveCfg({ sheetExtraCols: e.target.value.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 6) });
+    // ---- Estados de la carga ----
+    const stSave = async (list) => {
+      list = list.map((x) => ({ ...x, locked: x.locked || x.closing })); // cerrar implica bloquear
+      if (!list.some((x) => !x.locked)) { toast('Debe existir al menos un estado editable (sin 🔒)', 'err'); return renderSettings(root); }
+      if (!list.some((x) => x.closing)) { toast('Debe existir al menos un estado que cierre la carga', 'err'); return renderSettings(root); }
+      await saveCfg({ loadStatuses: list });
+    };
+    const stList = () => Loads.statuses(S.config).map((x) => ({ ...x }));
+    $('#stEd').onchange = (e) => {
+      const row = e.target.closest('[data-i]'); if (!row) return;
+      const list = stList(); const x = list[+row.dataset.i]; const k = e.target.dataset.st;
+      if (k === 'name') { if (!e.target.value.trim()) return; x.name = e.target.value.trim(); } else x[k] = e.target.checked;
+      stSave(list);
+    };
+    $('#stEd').onclick = (e) => {
+      const up = e.target.closest('[data-stup]'), rm = e.target.closest('[data-strm]');
+      const list = stList();
+      if (up) { const i = +up.dataset.stup; [list[i - 1], list[i]] = [list[i], list[i - 1]]; stSave(list); }
+      if (rm) {
+        const x = list[+rm.dataset.strm];
+        if (S.loads.some((l) => !l.deleted && l.status === x.id)) { toast('Hay hojas en "' + x.name + '": cámbialas de estado antes de borrarlo', 'err'); return; }
+        if (!confirm('¿Eliminar el estado "' + x.name + '"?')) return;
+        list.splice(+rm.dataset.strm, 1); stSave(list);
+      }
+    };
+    $('#stAdd').onclick = () => {
+      const v = $('#stNew').value.trim(); if (!v) return;
+      const list = stList(); list.push({ id: DB.uid('st').slice(0, 14), name: v, locked: true, closing: false }); stSave(list);
+    };
     bindList($('#routesEd'), () => S.config.routes || [], (arr) => saveCfg({ routes: arr }));
     bindList($('#rubEd'), () => S.config.rubros || [], (arr) => saveCfg({ rubros: arr }));
     bindList($('#dispEd'), () => (S.config.dispatchers || []).map((d) => d.name), (names) => {

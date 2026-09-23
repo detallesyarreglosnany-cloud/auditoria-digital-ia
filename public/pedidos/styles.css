@@ -329,6 +329,23 @@ table.inv .qin { width: 96px; min-height: 40px; text-align: right; font-weight: 
 @media (min-width: 1000px) { .plist { grid-template-columns: repeat(4, minmax(0, 1fr)); } .client-bar, .catalog-tools { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 1400px) { .plist { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
+/* Totales siempre visibles: encabezado arriba, totales abajo y columna TOTAL a la derecha */
+table.grid thead { position: sticky; top: 0; z-index: 5; }
+table.grid thead th { position: static; }
+table.grid tfoot { position: sticky; bottom: 0; z-index: 5; }
+table.grid td.tot, table.grid th.tot { position: sticky; right: 0; z-index: 2; box-shadow: -6px 0 10px rgba(0,0,0,.35); }
+table.grid thead th.tot, table.grid tfoot td.tot { z-index: 6; }
+table.grid tfoot td.tot { background: #3a2f0e; }
+table.grid tr.ini-row th { background: #1c0508; color: var(--accent); font: 700 11px var(--display); letter-spacing: .06em; padding: 4px 6px; text-align: center; }
+.tag { display: inline-block; font: 700 11px var(--display); letter-spacing: .05em; color: var(--accent); border: 1px solid rgba(255,180,0,.45); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+.status.locked { background: rgba(255,255,255,.08); color: var(--ink-2); }
+.status.over { background: rgba(255, 77, 90, .18); color: var(--danger); }
+.status.full { background: var(--warn-soft); color: var(--warn); }
+.load-card.locked { border-style: dashed; }
+.status-sel { min-width: 230px; font-weight: 800; border-color: var(--brand-2); }
+.status-sel.locked { border-color: var(--line); }
+.st-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+
 .credit { text-align: center; font-size: 11px; color: #6f686b; padding: 18px 16px 24px; letter-spacing: .02em; }
 .login .credit { padding: 4px 0 0; }
 .order-grid { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 16px; }

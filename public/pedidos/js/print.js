@@ -63,33 +63,40 @@
     const cfg = ctx.config;
     const m = Matrix.build(orders, 'bultos', { keepOrder: true, money: false, rubros: cfg.rubros, productRank: ctx.productRank });
     const u = ctx.usage;
+    const extra = cfg.sheetExtraCols || ['VACÍOS', 'DEVOLUCIÓN'];
+    const blanks = extra.map(() => '<td class="blank"></td>').join('');
     let lastCat = null;
-    const colspan = m.cols.length + 3;
+    const colspan = m.cols.length + 3 + extra.length;
     const rows = m.rows.map((r) => {
       let head = '';
       if (r.category !== lastCat) { lastCat = r.category; head = `<tr class="cat"><td colspan="${colspan}">${esc(r.category || 'SIN RUBRO')}</td></tr>`; }
       return head + `<tr><td class="p"><span class="muted">${esc(r.code)}</span> ${esc(r.name)} <b>${esc(r.presentation)}</b></td><td>${r.um}</td>
-        ${r.cells.map((v) => `<td class="num">${v ? nf0.format(v) : ''}</td>`).join('')}<td class="num tot">${nf0.format(r.total)}</td></tr>`;
+        ${r.cells.map((v) => `<td class="num${v ? ' has' : ''}">${v ? nf0.format(v) : ''}</td>`).join('')}<td class="num tot">${nf0.format(r.total)}</td>${blanks}</tr>`;
     }).join('');
-    const foot = m.footer.map((f) => `<tr class="tot"><td>${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="num">${nf0.format(v)}</td>`).join('')}<td class="num">${nf0.format(f.total)}</td></tr>`).join('');
-    const code = ctx.draft ? 'BORRADOR' : Loads.loadCode(load);
+    const foot = m.footer.map((f) => `<tr class="tot"><td>${esc(f.label)}</td><td></td>${f.cells.map((v) => `<td class="num">${nf0.format(v)}</td>`).join('')}<td class="num">${nf0.format(f.total)}</td>${blanks}</tr>`).join('');
+    const code = load.number ? Loads.loadCode(load) : 'BORRADOR';
+    const fecha = load.date || String(load.closedAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const [yy, mm, dd] = fecha.split('-');
     return `
       <section class="sheet">
-      ${header(cfg, 'HOJA DE CARGA', code)}
+      ${header(cfg, 'HOJA DE CARGA · ' + code, Loads.labelOf(load))}
       <div class="meta">
-        <div><b>Fecha</b>${esc(fdate(load.approvedAt || new Date().toISOString()))} ${esc(ftime(load.approvedAt))}</div>
-        <div><b>Vendedor</b>${esc(load.sellerName)}</div>
+        <div><b>Fecha de la carga</b>${esc(dd + '/' + mm + '/' + yy)}</div>
+        <div><b>Pedidos del</b>${esc(Loads.orderDateRange(orders) || '—')}</div>
         <div><b>Ruta</b>${esc(load.route || '—')}</div>
         <div><b>Despachador</b>${esc(load.dispatcherName || '—')}</div>
-        <div><b>Clientes</b>${m.cols.length} / ${u.maxClients}</div>
-        <div><b>${u.measure === 'unidades' ? 'Unidades' : 'Bultos'}</b>${nf0.format(u.used)} / ${nf0.format(u.limit)}</div>
+        <div><b>Vendedor(es)</b>${esc(load.sellerName)}</div>
+        <div><b>Estado</b>${esc(ctx.statusName || '')}</div>
+        <div><b>Clientes · ${u.measure === 'unidades' ? 'Unidades' : 'Bultos'}</b>${m.cols.length} / ${u.maxClients} · ${nf0.format(u.used)} / ${nf0.format(u.limit)}</div>
         <div><b>Notas de entrega</b>${load.firstNote ? esc(Loads.noteCode(load.firstNote) + ' a ' + Loads.noteCode(load.lastNote)) : '—'}</div>
-        <div><b>Estado</b>${esc(Loads.STATUS_LABEL[load.status] || '')}</div>
       </div>
-      <table><thead><tr><th style="text-align:left">Producto</th><th>UM</th>
-        ${m.cols.map((c, i) => `<th class="cl"><div>${i + 1}. ${esc(c.client)}</div></th>`).join('')}<th>TOTAL</th></tr></thead>
+      <table><thead>
+        <tr class="ini"><th style="text-align:right" colspan="2">VENDEDOR →</th>${m.cols.map((c) => `<th>${esc(Loads.initials(c.order.sellerName))}</th>`).join('')}<th></th>${extra.map(() => '<th></th>').join('')}</tr>
+        <tr><th style="text-align:left">PRODUCTO</th><th>UM</th>
+        ${m.cols.map((c, i) => `<th class="cl"><div>${i + 1}. ${esc(c.client)}</div></th>`).join('')}<th class="cl"><div>TOTAL</div></th>
+        ${extra.map((x) => `<th class="cl"><div>${esc(x)}</div></th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>
-      <p class="muted" style="margin:6px 0 0">CJ = cajas · UN = unidades sueltas. Clientes: ${m.cols.map((c, i) => `${i + 1}. ${esc(c.client)}`).join(' · ')}</p>
+      <p class="muted" style="margin:6px 0 0">CJ = cajas · UN = unidades sueltas. Clientes: ${m.cols.map((c, i) => `${i + 1}. ${esc(c.client)} (${esc(Loads.initials(c.order.sellerName))})`).join(' · ')}</p>
       <div class="sign"><div>Despachador</div><div>Almacén</div><div>Vendedor</div><div>Control / Oficina</div></div>
       </section>`;
   }
@@ -97,7 +104,9 @@
   const LOAD_CSS = `@page{size:letter landscape;margin:8mm} .sheet{page-break-after:always}
     th.cl{height:120px;vertical-align:bottom;padding:2px 1px;width:22px}
     th.cl div{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;max-height:116px;overflow:hidden;font-size:9px}
-    td.p{white-space:nowrap;max-width:230px;overflow:hidden} td{font-size:10px}`;
+    td.p{white-space:nowrap;max-width:230px;overflow:hidden} td{font-size:10px}
+    tr.ini th{background:#fff;color:#730101;font-size:8px;border-color:#444} td.has{background:#fff4c2;font-weight:bold}
+    td.blank{min-width:34px}`;
 
   function printLoadSheet(load, orders, ctx) {
     printHTML('Hoja de carga ' + Loads.loadCode(load), LOAD_CSS, loadSheetHTML(load, orders, ctx));

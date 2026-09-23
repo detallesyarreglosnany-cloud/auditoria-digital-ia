@@ -14,8 +14,9 @@ import { db } from '@/lib/db';
 // Reglas (espejo de public/pedidos/js/sync.js):
 //   - Last-write-wins por updatedAt del documento.
 //   - products/sellers/loads/config solo se escriben con clave admin.
-//   - Un pedido en carga, en espera o despachado no puede ser modificado por
-//     un vendedor (lo controla la oficina).
+//   - Un pedido bloqueado (su hoja pasó a un estado bloqueado: aprobada para
+//     carga, cerrada, despachada…) no puede ser modificado por un vendedor.
+//     Mientras la hoja esté en un estado editable, vendedor y oficina editan.
 //   - Un teléfono (sellerId) solo baja sus pedidos y su cartera de clientes.
 
 export const dynamic = 'force-dynamic';
@@ -24,8 +25,12 @@ const SYNC_KEY = process.env.PEDIDOS_SYNC_KEY || '';
 const ADMIN_KEY = process.env.PEDIDOS_ADMIN_KEY || '';
 const KINDS = ['orders', 'clients', 'products', 'sellers', 'loads', 'config'] as const;
 const ADMIN_KINDS: readonly string[] = ['products', 'sellers', 'loads', 'config'];
-const LOCKED_STATUS: readonly string[] = ['en_carga', 'en_espera', 'despachado'];
+
 type Kind = (typeof KINDS)[number];
+// Campos de un pedido que controla la oficina: un teléfono nunca los pisa
+// (aunque su copia local esté atrasada y no sepa que el pedido ya está en una hoja).
+const OFFICE_ORDER_FIELDS = ['loadId', 'locked', 'loadStatusName', 'noteNumber', 'loadNumber', 'dispatchedAt', 'officeEdited', 'heldAt'];
+const OFFICE_ORDER_STATUS: readonly string[] = ['en_carga', 'en_espera', 'despachado'];
 const MAX_BODY_BYTES = 15 * 1024 * 1024; // primera publicación: catálogo con fotos + cartera
 const MAX_DOCS_PER_KIND = 5000;
 const MAX_DOC_BYTES = 256 * 1024; // productos con foto comprimida
@@ -110,17 +115,32 @@ export async function POST(req: NextRequest) {
           delete (doc as Record<string, unknown>).dirty;
           // Un reloj de teléfono adelantado no puede "ganar" para siempre.
           if (doc.updatedAt > maxTs) doc.updatedAt = serverTime.toISOString();
-          const data = JSON.stringify(doc);
-          if (data.length > MAX_DOC_BYTES) {
+          if (JSON.stringify(doc).length > MAX_DOC_BYTES) {
             rejected.push({ kind, id: doc.id, reason: 'too_large' });
             continue;
           }
 
           const existing = await tx.distDoc.findUnique({ where: { kind_id: { kind, id: doc.id } } });
           if (existing) {
-            if (kind === 'orders' && LOCKED_STATUS.includes(existing.status || '') && !isAdmin) {
-              rejected.push({ kind, id: doc.id, reason: existing.status || 'locked', doc: parseDoc(existing.data) });
-              continue;
+            if (kind === 'orders' && !isAdmin) {
+              const cur = parseDoc(existing.data);
+              if (cur.locked === true || existing.status === 'despachado') {
+                rejected.push({ kind, id: doc.id, reason: 'locked', doc: cur });
+                continue;
+              }
+            }
+            if (kind === 'orders' && !isAdmin) {
+              const cur = parseDoc(existing.data) as Record<string, unknown>;
+              const d = doc as Record<string, unknown>;
+              let changed = false;
+              for (const f of OFFICE_ORDER_FIELDS) {
+                if (cur[f] !== undefined && d[f] !== cur[f]) { d[f] = cur[f]; changed = true; }
+              }
+              if (OFFICE_ORDER_STATUS.includes(String(cur.status)) && d.status !== cur.status) { d.status = cur.status; changed = true; }
+              // La oficina ve que el vendedor tocó un pedido que ya estaba en una hoja
+              if (cur.loadId && JSON.stringify(d.lines) !== JSON.stringify(cur.lines)) d.sellerEdited = serverTime.toISOString();
+              // Nueva versión con hora del servidor para que el teléfono la vuelva a bajar corregida
+              if (changed && existing.updatedAt <= doc.updatedAt) doc.updatedAt = serverTime.toISOString();
             }
             if (existing.updatedAt > doc.updatedAt) {
               rejected.push({ kind, id: doc.id, reason: 'stale', doc: parseDoc(existing.data) });
@@ -132,6 +152,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const data = JSON.stringify(doc);
           const cols = {
             data,
             deleted: !!doc.deleted,
