@@ -88,15 +88,56 @@
     cd /opt/pv && git pull && bun install && bun run db:push && bun run build && systemctl restart pv
     ```
 
-## Opción B — Vercel + Postgres (Neon)
+## Opción B — Vercel + Postgres (Supabase recomendado)
 
-1. Crea una cuenta en <https://neon.tech> y un proyecto. Copia la **connection string** (empieza por `postgresql://…`).
-2. En el proyecto, en `prisma/schema.prisma`, cambia `provider = "sqlite"` por `provider = "postgresql"`.
-   **Ojo:** la landing de auditoría comparte esa base de datos; sus datos actuales en SQLite no se migran solos.
-3. En tu PC, con la cadena de Neon: `DATABASE_URL="postgresql://…" bunx prisma db push`.
-4. En <https://vercel.com> → **Add New Project** → importa el repositorio (privado) y elige la rama.
-5. En *Settings → Environment Variables* agrega `DATABASE_URL`, `PEDIDOS_BASIC_USER`, `PEDIDOS_BASIC_PASS`, `PEDIDOS_SYNC_KEY` y `PEDIDOS_ADMIN_KEY`.
-6. **Deploy.** En *Settings → Domains* conecta tu dominio.
+### Configuración de Supabase
+
+1. Crea una cuenta en <https://supabase.com> y un proyecto.
+2. En la consola de Supabase, ve a **Settings → Database → Connection strings**.
+   - Copia la **URL con pgbouncer** (puerto 6543, para conexiones desde Vercel):
+     ```
+     postgresql://postgres.XXXXX:CLAVE@aws-0-us-east-2.pooler.supabase.com:6543/postgres
+     ```
+   - Copia la **URL directa** (puerto 5432, para migraciones desde tu PC):
+     ```
+     postgresql://postgres.XXXXX:CLAVE@aws-0-us-east-2.pooler.supabase.com:5432/postgres
+     ```
+
+### Pasos locales
+
+3. En tu PC, crea el archivo `.env` con ambas cadenas:
+   ```
+   DATABASE_URL=postgresql://postgres.XXXXX:CLAVE@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+   DIRECT_URL=postgresql://postgres.XXXXX:CLAVE@aws-0-us-east-2.pooler.supabase.com:5432/postgres
+   ```
+   **Importante:** El `?pgbouncer=true&connection_limit=1` va **solo en `DATABASE_URL`**, sin espacios.
+
+4. Crea la base de datos ejecutando desde tu PC:
+   ```bash
+   bun install && bun run db:push && bun run build
+   ```
+
+### Variables en Vercel
+
+5. En <https://vercel.com> → **Add New Project** → importa el repositorio (privado) y elige la rama.
+6. En *Settings → Environment Variables* agrega:
+
+   | Variable | Valor |
+   |---|---|
+   | `DATABASE_URL` | `postgresql://...6543/postgres?pgbouncer=true&connection_limit=1` |
+   | `DIRECT_URL` | `postgresql://...5432/postgres` |
+   | `PEDIDOS_BASIC_USER` | Tu usuario de acceso |
+   | `PEDIDOS_BASIC_PASS` | Clave larga |
+   | `PEDIDOS_SYNC_KEY` | Otra clave larga |
+   | `PEDIDOS_ADMIN_KEY` | Otra clave larga distinta |
+
+7. **Deploy.** En *Settings → Domains* conecta tu dominio.
+
+### Alternativa: Neon
+
+Si prefieres <https://neon.tech>:
+- Copia su **connection string** (empieza por `postgresql://…`)
+- Úsala en ambas variables (`DATABASE_URL` y `DIRECT_URL` idénticas), sin `pgbouncer`
 
 ---
 
