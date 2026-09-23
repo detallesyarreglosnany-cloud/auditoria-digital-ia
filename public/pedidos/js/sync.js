@@ -17,6 +17,11 @@
   'use strict';
 
   const DEFAULT_SYNC_URL = '/api/pedidos/sync';
+  const KINDS = ['orders', 'clients', 'products', 'sellers', 'loads', 'config'];
+  // Solo la oficina (clave admin) publica estos tipos
+  const ADMIN_KINDS = ['products', 'sellers', 'loads', 'config'];
+  // Un pedido en estos estados ya lo controla la oficina: el teléfono no lo pisa
+  const LOCKED = ['en_carga', 'en_espera', 'despachado'];
   const INITIAL_ORDER_DAYS = 14; // historial que baja un teléfono nuevo
   let running = null;
 
@@ -44,9 +49,9 @@
       const l = byId.get(r.id);
       if (l && l.dirty) {
         if (store === 'orders') {
-          const frozen = r.status === 'despachado';
+          const frozen = LOCKED.includes(r.status) && !isAdmin;
           if (!frozen && newer(l, r)) return; // mi cambio local es más reciente
-        } else if (isAdmin && newer(l, r)) {
+        } else if ((isAdmin || store === 'clients') && newer(l, r)) {
           return; // la oficina editó después: se subirá en el próximo push
         }
       }
@@ -68,16 +73,14 @@
   }
 
   async function collectDirty(isAdmin) {
-    const [orders, products, sellers] = await Promise.all(
-      ['orders', 'products', 'sellers'].map((s) => DB.getAll(s))
-    );
     const strip = (d) => { const c = { ...d }; delete c.dirty; return c; };
-    return {
-      orders: orders.filter((d) => d.dirty).map(strip),
-      products: isAdmin ? products.filter((d) => d.dirty).map(strip) : [],
-      sellers: isAdmin ? sellers.filter((d) => d.dirty).map(strip) : [],
-    };
+    const out = {};
+    for (const k of KINDS) {
+      out[k] = (!isAdmin && ADMIN_KINDS.includes(k)) ? [] : (await DB.getAll(k)).filter((d) => d.dirty).map(strip);
+    }
+    return out;
   }
+  const total = (push) => KINDS.reduce((a, k) => a + push[k].length, 0);
 
   /**
    * Sincroniza contra el servidor. scope = { sellerId } para teléfonos
@@ -123,27 +126,28 @@
       const data = await res.json();
 
       // 1) Lo aceptado por el servidor deja de estar pendiente
-      await clearDirty('orders', push.orders.filter((d) => (data.accepted.orders || []).includes(d.id)));
-      await clearDirty('products', push.products.filter((d) => (data.accepted.products || []).includes(d.id)));
-      await clearDirty('sellers', push.sellers.filter((d) => (data.accepted.sellers || []).includes(d.id)));
+      for (const k of KINDS) {
+        const ok = new Set((data.accepted && data.accepted[k]) || []);
+        await clearDirty(k, push[k].filter((d) => ok.has(d.id)));
+      }
 
       // 2) Lo rechazado vuelve con la versión del servidor (ya despachado, o
       //    el servidor tiene una edición más reciente)
-      const rejected = (data.rejected || []).filter((r) => r.doc && ['orders', 'products', 'sellers'].includes(r.kind));
+      const rejected = (data.rejected || []).filter((r) => r.doc && KINDS.includes(r.kind));
       for (const r of rejected) await DB.put(r.kind, { ...r.doc, dirty: false });
       const rejectedOrders = rejected.filter((r) => r.kind === 'orders');
 
       // 3) Bajar cambios remotos
-      const changed =
-        (await mergeRemote('products', data.pull.products, isAdmin)) +
-        (await mergeRemote('sellers', data.pull.sellers, isAdmin)) +
-        (await mergeRemote('orders', data.pull.orders, isAdmin));
+      let changed = 0;
+      for (const k of ['config', 'products', 'sellers', 'clients', 'loads', 'orders']) {
+        changed += await mergeRemote(k, data.pull[k] || [], isAdmin);
+      }
 
       await DB.setMeta('syncCursor', data.serverTime);
       await DB.setMeta('lastSyncAt', new Date().toISOString());
       return {
         ok: true,
-        pushed: push.orders.length + push.products.length + push.sellers.length,
+        pushed: total(push),
         pulled: changed,
         rejected: rejectedOrders.length,
       };
@@ -153,8 +157,7 @@
 
   async function pendingCount() {
     const cfg = await settings();
-    const d = await collectDirty(!!cfg.adminKey);
-    return d.orders.length + d.products.length + d.sellers.length;
+    return total(await collectDirty(!!cfg.adminKey));
   }
 
   /* ---------------- Canal 2: paquete de archivo ---------------- */
@@ -171,25 +174,37 @@
       deviceId: await deviceId(),
       orders: orders.map((o) => { const c = { ...o }; delete c.dirty; return c; }),
     };
+    const strip = (d) => { const c = { ...d }; delete c.dirty; return c; };
     if (opts.includeCatalog) {
-      bundle.products = (await DB.getAll('products')).map((p) => { const c = { ...p }; delete c.dirty; return c; });
-      bundle.sellers = (await DB.getAll('sellers')).map((s) => { const c = { ...s }; delete c.dirty; return c; });
+      for (const k of ['products', 'sellers', 'config']) bundle[k] = (await DB.getAll(k)).map(strip);
+      const clients = await DB.getAll('clients');
+      bundle.clients = clients.filter((c) => !opts.clientsOf || c.sellerId === opts.clientsOf).map(strip);
+    }
+    if (opts.includeLoads) bundle.loads = (await DB.getAll('loads')).map(strip);
+    // Clientes nuevos creados en la calle viajan con los pedidos del vendedor
+    if (opts.sellerId && !opts.includeCatalog) {
+      bundle.clients = (await DB.getAll('clients')).filter((c) => c.sellerId === opts.sellerId && c.source === 'campo').map(strip);
     }
     return bundle;
   }
 
-  async function importBundle(bundle, isAdmin) {
+  /**
+   * @param {boolean} fromOffice  true en la oficina: todo lo importado queda
+   *        pendiente de subir (se publica al servidor con la clave admin).
+   */
+  async function importBundle(bundle, fromOffice) {
+    const isAdmin = !!fromOffice;
     if (!bundle || bundle.format !== 'distribuidora-pedidos/v1') {
       throw new Error('Archivo no reconocido (formato inválido)');
     }
-    const n =
-      // markDirty: si este equipo también sincroniza con servidor, los
-      // pedidos importados por archivo se reenvían en el próximo sync.
-      (await mergeRemote('orders', bundle.orders || [], isAdmin, true)) +
-      (await mergeRemote('products', bundle.products || [], false)) +
-      (await mergeRemote('sellers', bundle.sellers || [], false));
+    let n = 0;
+    for (const k of ['config', 'products', 'sellers', 'loads']) n += await mergeRemote(k, bundle[k] || [], false, isAdmin);
+    // markDirty: si este equipo también sincroniza con servidor, los pedidos y
+    // clientes recibidos por archivo se reenvían en el próximo sync.
+    n += await mergeRemote('clients', bundle.clients || [], isAdmin, isAdmin);
+    n += await mergeRemote('orders', bundle.orders || [], isAdmin, true);
     return n;
   }
 
-  global.Sync = { syncNow, pendingCount, exportBundle, importBundle, deviceId, DEFAULT_SYNC_URL };
+  global.Sync = { KINDS, LOCKED, syncNow, pendingCount, exportBundle, importBundle, deviceId, DEFAULT_SYNC_URL };
 })(window);

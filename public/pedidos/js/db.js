@@ -3,9 +3,12 @@
  *
  * Stores (todas con keyPath "id", salvo meta):
  *   products : catálogo maestro (lo edita la oficina)
- *   sellers  : vendedores preconfigurados (lo edita la oficina)
+ *   sellers  : vendedores con sus rutas (lo edita la oficina)
+ *   clients  : cartera de clientes asignada a cada vendedor
  *   orders   : un pedido = 1 vendedor + 1 cliente + 1 fecha de ruta
- *   meta     : { key, value } → ajustes, deviceId, cursor de sync, sesión
+ *   loads    : hojas de carga (máx. N bultos / N clientes) y su archivo
+ *   config   : doc único "main": empresa, rutas, despachadores, límites, tasa
+ *   meta     : { key, value } → ajustes locales, deviceId, cursor, sesión
  *
  * Cada documento sincronizable lleva:
  *   updatedAt (ISO, reloj del dispositivo) → resolución last-write-wins
@@ -16,8 +19,9 @@
   'use strict';
 
   const DB_NAME = 'distribuidora-pedidos';
-  const DB_VERSION = 1;
-  const STORES = ['products', 'sellers', 'orders'];
+  const DB_VERSION = 2;
+  // Stores sincronizables (mismo nombre que "kind" en el servidor)
+  const STORES = ['products', 'sellers', 'orders', 'clients', 'loads', 'config'];
   const LS_PREFIX = 'dp:';
 
   let dbPromise = null;
@@ -45,6 +49,18 @@
           const s = db.createObjectStore('orders', { keyPath: 'id' });
           s.createIndex('seller_date', ['sellerId', 'routeDate'], { unique: false });
           s.createIndex('routeDate', 'routeDate', { unique: false });
+        }
+        // v2: clientes por vendedor, hojas de carga y configuración compartida
+        if (!db.objectStoreNames.contains('clients')) {
+          const s = db.createObjectStore('clients', { keyPath: 'id' });
+          s.createIndex('sellerId', 'sellerId', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('loads')) {
+          const s = db.createObjectStore('loads', { keyPath: 'id' });
+          s.createIndex('status', 'status', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('config')) {
+          db.createObjectStore('config', { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains('meta')) {
           db.createObjectStore('meta', { keyPath: 'key' });

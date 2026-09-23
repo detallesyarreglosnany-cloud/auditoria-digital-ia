@@ -79,10 +79,10 @@ model AuditResult {
 // `data` guarda el documento JSON completo; las demás columnas son índices.
 // ---------------------------------------------------------------------------
 model DistDoc {
-  kind      String   // "products" | "sellers" | "orders"
+  kind      String   // orders | clients | products | sellers | loads | config
   id        String
   data      String   // JSON del documento
-  sellerId  String?  // solo pedidos: filtra la bajada por vendedor
+  sellerId  String?  // pedidos, clientes y cargas: filtra la bajada por vendedor
   routeDate String?  // solo pedidos: YYYY-MM-DD
   status    String?  // solo pedidos: abierto | enviado | despachado
   deleted   Boolean  @default(false)

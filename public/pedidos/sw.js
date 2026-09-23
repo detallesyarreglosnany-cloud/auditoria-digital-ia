@@ -5,11 +5,14 @@
  *  - /api/*: siempre red (los datos viven en IndexedDB, no en caché HTTP).
  * Subir CACHE_VERSION en cada despliegue para forzar la actualización.
  * ========================================================================= */
-const CACHE_VERSION = 'pedidos-v1';
+const CACHE_VERSION = 'pedidos-v2';
 const SHELL = [
   './index.html', './styles.css', './manifest.webmanifest',
-  './js/db.js', './js/seed.js', './js/matrix.js', './js/sync.js', './js/app.js',
-  './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
+  './js/db.js', './js/seed.js', './js/matrix.js', './js/sync.js', './js/loads.js', './js/print.js',
+  './js/importer.js', './js/app.js', './js/office.js',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/logo-white.png', './icons/logo-print.png', './icons/mark-white.png',
+  './fonts/oswald-latin-600-normal.woff2', './fonts/oswald-latin-700-normal.woff2',
+  // vendor/xlsx.full.min.js (lector de Excel) se cachea la primera vez que se usa
 ];
 
 self.addEventListener('install', (e) => {

@@ -25,7 +25,7 @@
   }
 
   function orderTotals(order) {
-    const t = { cajas: 0, unidades: 0, totalUnidades: 0, monto: 0, items: 0 };
+    const t = { cajas: 0, unidades: 0, totalUnidades: 0, bultos: 0, monto: 0, items: 0 };
     Object.values(order.lines || {}).forEach((l) => {
       const x = lineTotals(l);
       if (!x.cajas && !x.unidades) return;
@@ -33,18 +33,24 @@
       t.cajas += x.cajas; t.unidades += x.unidades;
       t.totalUnidades += x.totalUnidades; t.monto = r2(t.monto + x.monto);
     });
+    t.bultos = t.cajas + t.unidades; // lo que ocupa espacio en el camión
     return t;
   }
 
   /**
    * @param {Array} orders   pedidos (ya filtrados por vendedor + fecha)
    * @param {'bultos'|'unidades'|'monto'} mode
+   * @param {{keepOrder?: boolean, money?: boolean}} [opts]
+   *        keepOrder: respeta el orden recibido (orden de la hoja de carga)
+   *        money:false → sin fila de USD (la hoja de carga no lleva precios)
    */
-  function build(orders, mode) {
+  function build(orders, mode, opts) {
+    opts = opts || {};
+    const withMoney = opts.money !== false;
     const cols = orders
       .filter((o) => !o.deleted && orderTotals(o).items > 0)
-      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
-      .map((o) => ({ id: o.id, client: o.clientName, status: o.status, totals: orderTotals(o) }));
+      .sort((a, b) => opts.keepOrder ? 0 : String(a.createdAt).localeCompare(String(b.createdAt)))
+      .map((o) => ({ id: o.id, client: o.clientName, status: o.status, totals: orderTotals(o), order: o }));
     const colIndex = new Map(cols.map((c, i) => [c.id, i]));
 
     const rowsByKey = new Map();
@@ -81,9 +87,13 @@
 
     const rows = [...rowsByKey.values()];
     rows.forEach((r) => { r.total = r2(r.cells.reduce((a, b) => a + b, 0)); });
-    // Orden de almacén: categoría → nombre → presentación → CJ antes que UN
+    // Orden de almacén: rubro (orden configurado) → nombre → código → CJ antes que UN
+    const rank = (c) => { const i = (opts.rubros || []).indexOf(c); return i < 0 ? 999 : i; };
+    const prank = opts.productRank || {}; // orden manual por producto (Inventario → Orden)
     rows.sort((a, b) =>
+      rank(a.category) - rank(b.category) ||
       a.category.localeCompare(b.category, 'es') ||
+      (prank[a.productId] || 9999) - (prank[b.productId] || 9999) ||
       a.name.localeCompare(b.name, 'es') ||
       String(a.code).localeCompare(String(b.code), 'es', { numeric: true }) ||
       a.um.localeCompare(b.um));
@@ -92,10 +102,11 @@
     if (mode === 'bultos') {
       footer.push({ key: 'TOTAL_CAJAS', label: 'Total cajas', cells: cols.map((c) => c.totals.cajas) });
       footer.push({ key: 'TOTAL_UNIDADES', label: 'Total unid. sueltas', cells: cols.map((c) => c.totals.unidades) });
+      footer.push({ key: 'TOTAL_BULTOS', label: 'Total bultos', cells: cols.map((c) => c.totals.bultos) });
     } else if (mode === 'unidades') {
       footer.push({ key: 'TOTAL_UNIDADES', label: 'Total unidades', cells: cols.map((c) => c.totals.totalUnidades) });
     }
-    footer.push({ key: 'TOTAL_USD', label: 'Total USD', money: true, cells: cols.map((c) => c.totals.monto) });
+    if (withMoney) footer.push({ key: 'TOTAL_USD', label: 'Total USD', money: true, cells: cols.map((c) => c.totals.monto) });
     footer.forEach((f) => { f.total = r2(f.cells.reduce((a, b) => a + b, 0)); });
 
     return { mode, cols, rows, footer };

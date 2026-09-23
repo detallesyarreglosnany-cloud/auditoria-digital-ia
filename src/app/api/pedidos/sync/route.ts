@@ -7,23 +7,28 @@ import { db } from '@/lib/db';
 // POST /api/pedidos/sync
 //   headers: x-sync-key  (obligatoria si PEDIDOS_SYNC_KEY está definida)
 //            x-admin-key (oficina: permite escribir catálogo y vendedores)
-//   body:    { deviceId, since, sinceDays, sellerId, push: { orders, products, sellers } }
+//   body:    { deviceId, since, sinceDays, sellerId, push: { <kind>: docs[] } }
+//   kinds:   orders, clients, products, sellers, loads, config
 //   resp:    { serverTime, accepted: {kind: ids[]}, rejected: [{kind,id,reason,doc}], pull: {kind: docs[]} }
 //
 // Reglas (espejo de public/pedidos/js/sync.js):
 //   - Last-write-wins por updatedAt del documento.
-//   - products/sellers solo se escriben con clave admin.
-//   - Un pedido "despachado" no puede ser modificado por un vendedor.
+//   - products/sellers/loads/config solo se escriben con clave admin.
+//   - Un pedido en carga, en espera o despachado no puede ser modificado por
+//     un vendedor (lo controla la oficina).
+//   - Un teléfono (sellerId) solo baja sus pedidos y su cartera de clientes.
 
 export const dynamic = 'force-dynamic';
 
 const SYNC_KEY = process.env.PEDIDOS_SYNC_KEY || '';
 const ADMIN_KEY = process.env.PEDIDOS_ADMIN_KEY || '';
-const KINDS = ['orders', 'products', 'sellers'] as const;
+const KINDS = ['orders', 'clients', 'products', 'sellers', 'loads', 'config'] as const;
+const ADMIN_KINDS: readonly string[] = ['products', 'sellers', 'loads', 'config'];
+const LOCKED_STATUS: readonly string[] = ['en_carga', 'en_espera', 'despachado'];
 type Kind = (typeof KINDS)[number];
-const MAX_BODY_BYTES = 5 * 1024 * 1024;
+const MAX_BODY_BYTES = 15 * 1024 * 1024; // primera publicación: catálogo con fotos + cartera
 const MAX_DOCS_PER_KIND = 5000;
-const MAX_DOC_BYTES = 64 * 1024;
+const MAX_DOC_BYTES = 256 * 1024; // productos con foto comprimida
 
 type Doc = Record<string, unknown> & { id: string; updatedAt: string; deleted?: boolean };
 
@@ -82,7 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
   }
 
-  const accepted: Record<Kind, string[]> = { orders: [], products: [], sellers: [] };
+  const accepted = Object.fromEntries(KINDS.map((k) => [k, [] as string[]])) as Record<Kind, string[]>;
   const rejected: { kind: Kind; id: string; reason: string; doc?: Doc }[] = [];
   const maxTs = new Date(serverTime.getTime() + 60_000).toISOString();
 
@@ -93,8 +98,8 @@ export async function POST(req: NextRequest) {
       if (incoming.length > MAX_DOCS_PER_KIND) {
         return NextResponse.json({ error: `Demasiados documentos en ${kind}` }, { status: 413 });
       }
-      if (kind !== 'orders' && !isAdmin) {
-        // Un teléfono nunca publica catálogo: se ignora sin error.
+      if (ADMIN_KINDS.includes(kind) && !isAdmin) {
+        // Un teléfono nunca publica catálogo ni cargas: se ignora sin error.
         continue;
       }
 
@@ -113,8 +118,8 @@ export async function POST(req: NextRequest) {
 
           const existing = await tx.distDoc.findUnique({ where: { kind_id: { kind, id: doc.id } } });
           if (existing) {
-            if (kind === 'orders' && existing.status === 'despachado' && !isAdmin) {
-              rejected.push({ kind, id: doc.id, reason: 'despachado', doc: parseDoc(existing.data) });
+            if (kind === 'orders' && LOCKED_STATUS.includes(existing.status || '') && !isAdmin) {
+              rejected.push({ kind, id: doc.id, reason: existing.status || 'locked', doc: parseDoc(existing.data) });
               continue;
             }
             if (existing.updatedAt > doc.updatedAt) {
@@ -131,7 +136,7 @@ export async function POST(req: NextRequest) {
             data,
             deleted: !!doc.deleted,
             updatedAt: doc.updatedAt,
-            sellerId: kind === 'orders' ? String(doc.sellerId || '') : null,
+            sellerId: kind === 'orders' || kind === 'clients' || kind === 'loads' ? String(doc.sellerId || '') : null,
             routeDate: kind === 'orders' ? String(doc.routeDate || '') : null,
             status: kind === 'orders' ? String(doc.status || '') : null,
           };
@@ -152,9 +157,14 @@ export async function POST(req: NextRequest) {
     const sinceDays = !since && typeof body.sinceDays === 'number' && body.sinceDays > 0
       ? Math.min(body.sinceDays, 365) : null;
 
-    const [products, sellers, orders] = await Promise.all([
+    const bySeller = sellerId ? { sellerId } : {};
+    const [products, sellers, config, clients, loads, orders] = await Promise.all([
       db.distDoc.findMany({ where: { kind: 'products', syncedAt } }),
       db.distDoc.findMany({ where: { kind: 'sellers', syncedAt } }),
+      db.distDoc.findMany({ where: { kind: 'config', syncedAt } }),
+      db.distDoc.findMany({ where: { kind: 'clients', syncedAt, ...bySeller } }),
+      // Las hojas de carga solo interesan a la oficina
+      sellerId ? Promise.resolve([]) : db.distDoc.findMany({ where: { kind: 'loads', syncedAt } }),
       db.distDoc.findMany({
         where: {
           kind: 'orders',
@@ -172,6 +182,9 @@ export async function POST(req: NextRequest) {
       pull: {
         products: products.map((d) => parseDoc(d.data)),
         sellers: sellers.map((d) => parseDoc(d.data)),
+        config: config.map((d) => parseDoc(d.data)),
+        clients: clients.map((d) => parseDoc(d.data)),
+        loads: loads.map((d) => parseDoc(d.data)),
         orders: orders.map((d) => parseDoc(d.data)),
       },
     });

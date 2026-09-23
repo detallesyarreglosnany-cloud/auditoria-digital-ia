@@ -1,147 +1,102 @@
-# PWA de Toma de Pedidos — Distribuidora mayorista
+# Puerto Venado · PWA de pedidos, hojas de carga y despacho
 
-App web instalable y **offline-first** para vendedores en la calle (móvil) y para la oficina (PC).
-Vive en `public/pedidos/` (HTML + CSS + JavaScript sin dependencias ni CDN) y se sirve en
-`/pedidos/index.html` (`/pedidos` redirige ahí). La sincronización usa `POST /api/pedidos/sync`.
+App web instalable y **offline-first** de Distribuidora de Suministros Puerto Venado.
+- **Vendedores:** usan el teléfono en la calle.
+- **Oficina:** usa la PC para armar las cargas, aprobar el despacho, llevar el inventario y el archivo.
+
+Vive en `public/pedidos/` (HTML + CSS + JS sin dependencias ni CDN) y se abre en `/pedidos`.
+La sincronización pasa por `POST /api/pedidos/sync`, protegida con clave.
 
 ```
 public/pedidos/
-├── index.html            shell de la app
-├── styles.css            alto contraste, botones ≥ 52 px, impresión horizontal
-├── manifest.webmanifest  instalable ("Agregar a pantalla de inicio")
-├── sw.js                 service worker: la app abre sin señal
-├── icons/
+├── index.html, styles.css, manifest.webmanifest, sw.js
+├── icons/        logo (login, impresión), íconos PWA
+├── fonts/        Oswald (OFL) para funcionar sin internet
+├── vendor/       SheetJS: lector de Excel, se carga solo al importar
 └── js/
-    ├── db.js      IndexedDB (con respaldo en localStorage)
-    ├── seed.js    ~110 productos y 4 vendedores de demostración
-    ├── sync.js    sincronización HTTP + intercambio por archivo
-    ├── matrix.js  matriz de despacho + exportación CSV/TSV (funciones puras)
-    └── app.js     interfaz y router (#/, #/ruta, #/oficina/*)
-src/app/api/pedidos/sync/route.ts   endpoint de sincronización
-prisma/schema.prisma                modelo DistDoc
+    ├── db.js        IndexedDB: products, sellers, clients, orders, loads, config, meta
+    ├── seed.js      estructura inicial: vendedores+rutas, despachadores, límites (sin demo)
+    ├── sync.js      sincronización HTTP + paquetes .json (WhatsApp / respaldo)
+    ├── matrix.js    matriz productos × clientes + exportación Excel/CSV
+    ├── loads.js     hojas de carga: armado automático, espera, aprobación
+    ├── print.js     hoja de carga (sin precios) y notas de entrega (original + copia)
+    ├── importer.js  Excel/CSV → catálogo y cartera, clasificador de rubros
+    ├── app.js       núcleo + login + pantalla del vendedor
+    └── office.js    oficina: Cargas, Pedidos, Archivo, Inventario, Clientes, Vendedores, Ajustes
 ```
 
-## 1. Estructura de datos
+> **Datos sensibles fuera del repositorio.** El repositorio es público. Por eso la lista de precios
+> y la cartera de clientes (RIF, teléfonos) **no** están en el código. Llegan en el
+> *paquete de arranque* (`puerto-venado-arranque.json`), que la oficina importa una sola vez.
+> Desde ahí viajan solo por la sincronización, protegida con clave.
 
-IndexedDB `distribuidora-pedidos`, con 4 stores. Todo documento que se sincroniza lleva
-`updatedAt` (ISO), `deleted` (borrado lógico) y `dirty` (cambio local todavía sin subir).
+## 1. Flujo operativo
 
-### `products` — catálogo (lo edita la oficina)
-```json
-{
-  "id": "p_sal-004",
-  "code": "SAL-004",
-  "name": "Salsa de Pizza",
-  "presentation": "340 g",
-  "category": "Salsas y Aderezos",
-  "unitsPerBox": 12,
-  "unitPrice": 1.40,
-  "boxPrice": 15.96,
-  "sellBy": "ambos",          // "ambos" | "caja" | "unidad"
-  "stock": 756,               // SIEMPRE en unidades (63 cj = 756 un)
-  "active": true,
-  "updatedAt": "2026-09-22T14:03:11.120Z", "deleted": false, "dirty": false
-}
 ```
-Cada gramaje es un SKU propio que comparte `name` (nombre base): *Salsa de Pizza 340 g / 500 g / 1 kg*.
-El stock se guarda en unidades para no mezclar cajas con unidades sueltas en las cuentas.
-
-### `sellers`
-```json
-{ "id": "s_fanny", "name": "Fanny A.", "active": true, "updatedAt": "…", "deleted": false }
+VENDEDOR (teléfono)                 OFICINA (PC)
+abierto ──cierra y envía──▶ enviado ──armado automático──▶ en_carga (Hoja "Esperando aprobación")
+                                         │  ✎ editar cantidades / ⏸ pasar a espera ──▶ en_espera
+                                         │  ↩ reincorporar ──▶ vuelve a la cola
+                                         └─ ✓ Aprobar carga ──▶ despachado · Nº de carga · Nº de nota
+                                                                · descuenta inventario · Archivo
 ```
 
-### `orders` — 1 pedido = 1 vendedor + 1 cliente + 1 fecha de ruta
-```json
-{
-  "id": "o_c5e61ae5-…",                 // UUID generado en el teléfono (sin choques offline)
-  "sellerId": "s_fanny", "sellerName": "Fanny A.",
-  "clientName": "Panadería El Sol",
-  "clientKey": "panaderia el sol",      // normalizado: evita duplicar al cliente en el día
-  "routeDate": "2026-09-22",
-  "status": "abierto",                  // abierto → enviado → despachado
-  "notes": "Entregar antes de las 10am",
-  "lines": {
-    "p_sal-004": {
-      "cajas": 3, "unidades": 2,
-      "code": "SAL-004", "name": "Salsa de Pizza", "presentation": "340 g",
-      "category": "Salsas y Aderezos", "unitsPerBox": 12,
-      "unitPrice": 1.50, "boxPrice": 17.00   // precio CONGELADO al momento de la venta
-    }
-  },
-  "createdAt": "…", "sentAt": "…", "dispatchedAt": null,
-  "deviceId": "dev_…", "updatedAt": "…", "deleted": false, "dirty": true
-}
-```
-- `lines` es un mapa por `productId`, así sumar o restar una cantidad cuesta O(1).
-- Cada línea guarda una **copia** del producto y del precio. Si la oficina cambia el precio o
-  borra el producto después, el pedido y la matriz no cambian.
+- **Hoja de carga:** agrupa los pedidos de **un vendedor y una ruta**. El tope es **900 bultos o 32 clientes**, configurable en Ajustes. Bultos = cajas + unidades sueltas; se puede cambiar a "unidades totales".
+  - Si un pedido ya no cabe, se abre otra hoja. Puede haber varias hojas esperando aprobación a la vez.
+  - Un pedido que por sí solo pasa del tope ocupa una hoja propia, marcada como **EXCEDIDA**.
+- **Estados de la hoja:**
+  - *Esperando aprobación*: la hoja está en cola.
+  - *Carga aprobada*: la hoja se cierra, se imprime y pasa al archivo.
+  - *Carga en espera*: clientes que se dejan para otra carga; no se pierde su pedido.
+- **En la oficina** se asigna la **ruta** y el **despachador** (Ernesto Ch., Sr. Luis T., Douglas Ch., Aquiles M.) con menús desplegables. También se editan las cantidades de cualquier celda: por ejemplo, 300 → 50 si no hay existencia. Se muestran los **faltantes de inventario**.
+- **Impresión:**
+  - *Hoja de carga*: carta horizontal, **sin precios**, totales por producto y por cliente, firmas.
+  - *Notas de entrega*: una por cliente, **con precios**, en ORIGINAL (cliente) + COPIA (empresa), numeradas NE-000001….
+- **Archivo:** guarda cada carga aprobada con fecha, número, vendedor, ruta, despachador, clientes, bultos, unidades, monto y rango de notas. Se filtra y se exporta a CSV.
+- **Bloqueo:** cuando un pedido entra en una hoja, el teléfono ya no puede modificarlo. El servidor lo rechaza aunque llegue tarde. Los cambios de la oficina (cantidades, precios, catálogo, clientes, rutas) llegan a los teléfonos en el siguiente sync: cada 45 s o al tocar ⟳.
 
-### `meta` (clave/valor)
-`settings` (URL, claves, tasa Bs/USD, separador CSV), `session` (vendedor y cliente activo),
-`deviceId`, `syncCursor`, `lastSyncAt`, `seeded`.
+## 2. Catálogo (lista de precios 30/07/2026)
 
-### Servidor (`DistDoc`, SQLite vía Prisma)
-Espejo por documento de los stores: `kind + id` como clave, `data` con el JSON completo y
-columnas indexadas (`sellerId`, `routeDate`, `status`, `syncedAt`) para filtrar lo que se baja.
+- 169 renglones → **139 productos** en 10 rubros: REFRESCOS, AGUAS, JUGOS, MALTAS, CERVEZAS, BEBIDAS ALCOHÓLICAS, GALLETAS, PAPAS Y CHOWIS, SALSAS y VÍVERES. El orden de los rubros se edita en Ajustes.
+- **Forma de venta:**
+  - **Caja y unidad:** solo cuando la lista trae ambos precios. En ese caso los dos renglones se fusionan en un producto (30 casos). El código de caja queda como principal y el de unidad en `unitCode`.
+  - **Solo unidad:** whisky, ron, anís y vodka, además de los renglones "P/UND" sin caja equivalente.
+  - **Solo caja:** todo lo demás (refrescos, aguas, Del Valle, soda, maltas, cervezas…).
+- Cada producto tiene: código, código unidad, nombre (el de facturación), presentación, rubro, subgrupo (ej. REFRESCOS · 2 L), marca, unidades por caja, precio caja, precio unidad, stock, **orden**, activo y **foto**.
+- **Stock vacío = sin control de inventario:** no muestra alertas ni descuenta. Se llena desde Inventario.
+- **Fotos:** se pueden subir una por una (📷 en el formulario) o **en lote**. En lote, el nombre del archivo debe ser el código, por ejemplo `222.jpg` o `G17.png`. Se comprimen a unos 30 KB y quedan disponibles sin internet en los teléfonos.
 
-## 2. Sincronización offline-first
+## 3. Estructura de datos (IndexedDB y servidor)
 
-1. Todo se escribe primero en IndexedDB y se marca `dirty`. La app no espera a la red.
-2. `sync.js` sube lo pendiente y baja lo que cambió desde `syncCursor` (hora del servidor).
-   Corre al abrir la app, al recuperar señal, al cerrar un pedido y cada 60 s (teléfono) o 20 s (oficina).
-3. Reglas de fusión (iguales en cliente y servidor):
-   - Gana la última escritura según `updatedAt`. Si un teléfono tiene el reloj adelantado,
-     el servidor recorta la hora a la suya.
-   - El catálogo solo lo publica la oficina, con `x-admin-key`. Un teléfono siempre acepta el catálogo del servidor.
-   - Un pedido **despachado** queda congelado: el servidor rechaza cambios del vendedor y le devuelve su versión.
-4. **Sin servidor:** el vendedor usa *Menú → Enviar pedidos de hoy por archivo* (JSON por WhatsApp)
-   y la oficina lo carga en *Ajustes → Importar*. La oficina reparte el catálogo de la misma forma.
+| Store | Documento | Notas |
+|---|---|---|
+| `products` | `{id, code, unitCode, name, presentation, category, subgroup, brand, sellBy, unitsPerBox, boxPrice, unitPrice, stock, sort, active, image}` | `stock` en unidades, o `null` = sin control |
+| `sellers` | `{id, name, routes[], aliases[], active}` | los alias enlazan con el Excel ("LUCAS E CHAVEZ" → Lucas Ch.) |
+| `clients` | `{id, rif, name, phone, address, group, creditDays, sellerId, route, source}` | `source: 'campo'` = creado por el vendedor en la calle |
+| `orders` | `{id, sellerId, clientId, clientName, route, routeDate, status, lines{pid:{cajas, unidades, precios congelados…}}, loadId, noteNumber, officeEdited}` | los precios quedan congelados en cada línea |
+| `loads` | `{id, sellerId, route, dispatcherId, status, orderIds[], number, approvedAt, totals{…}, firstNote, lastNote}` | `status`: `espera` \| `aprobada` |
+| `config` | `{company, routes[], dispatchers[], rubros[], load{limit, maxClients, measure}, exchangeRate, counters{load, note}}` | un solo documento, compartido por todos los equipos |
 
-## 3. Matriz de despacho
+El servidor guarda cada documento en `DistDoc` (Prisma/SQLite) con índices por vendedor, fecha y estado.
+- Gana la escritura más reciente según `updatedAt`.
+- Solo la clave admin puede publicar catálogo, vendedores, cargas y configuración.
+- Cada teléfono baja solo su cartera y sus pedidos.
 
-- Filas: productos, en orden de almacén (categoría → nombre → código). Columnas: clientes, en el orden de la ruta.
-- Columna final **TOTAL por producto**, para armar la carga. Filas finales **Total cajas / Total
-  unid. sueltas / Total USD por cliente**, para el control contable.
-- Tres modos: **Cajas/Unid.** (una fila por producto y unidad de medida, CJ y UN por separado,
-  sin fracciones), **Unidades totales** y **Monto $**.
-- Vista **Todos**: las columnas son los vendedores. Sirve para la carga total del día.
-- **Confirmar despacho** marca los pedidos como despachados y descuenta el stock una sola vez.
+## 4. Exportación a Excel/VBA
+- **Copiar para Excel:** texto con tabuladores, se pega directo con Ctrl+V.
+- **CSV:** usa `;` y coma decimal, con BOM UTF-8 para que se vean las tildes.
+- Encabezado fijo: `CODIGO | PRODUCTO | PRESENTACION | UM | <clientes> | TOTAL`. Las filas de totales llevan en la primera columna las claves `TOTAL_CAJAS`, `TOTAL_UNIDADES`, `TOTAL_BULTOS` y `TOTAL_USD`.
+- Los nombres de cliente que empiezan con `= + - @` se exportan con un `'` delante, para que Excel no los tome como fórmula.
 
-### Exportación para Excel/VBA
-- **Copiar para Excel**: texto separado por tabuladores. Se pega con Ctrl+V directo en las celdas.
-- **CSV matriz**: UTF-8 con BOM (Excel muestra bien acentos y ñ). Usa `;` y coma decimal por
-  defecto (Excel en español); se cambia en Ajustes.
-- **CSV plano**: una fila por línea de pedido (`FECHA;VENDEDOR;CLIENTE;CODIGO;…;MONTO_USD;ESTADO;PEDIDO_ID`),
-  útil para tablas dinámicas o para acumular en una hoja histórica.
-- Encabezado fijo: `CODIGO | PRODUCTO | PRESENTACION | UM | <clientes…> | TOTAL`. Las filas de
-  totales llevan en `CODIGO` las claves `TOTAL_CAJAS`, `TOTAL_UNIDADES` y `TOTAL_USD`.
-  Así la macro las encuentra sin depender del texto visible:
-  ```vb
-  If ws.Cells(r, 1).Value = "TOTAL_USD" Then ...
-  ```
-- Protección contra inyección de fórmulas: si un nombre de cliente empieza por `= + - @`,
-  se exporta con un `'` delante.
-
-## 4. Despliegue
-
+## 5. Despliegue
 ```bash
-# variables de entorno del servidor
-PEDIDOS_ADMIN_KEY=<clave larga de la oficina>   # obligatoria para publicar catálogo
-PEDIDOS_SYNC_KEY=<clave compartida de ruta>      # opcional: exige clave a todos los equipos
-
-bun run db:push      # crea la tabla DistDoc
-bun run build && bun run start
+PEDIDOS_ADMIN_KEY=<clave larga de oficina>     # obligatoria
+PEDIDOS_SYNC_KEY=<clave compartida de ruta>     # recomendada
+bun install && bun run db:push && bun run build && bun run start
 ```
-- En la PC de oficina: *Oficina → Ajustes*, escribir las dos claves y pulsar *Guardar y sincronizar*.
-  El primer sync publica el catálogo.
-- En cada teléfono: abrir `https://<dominio>/pedidos`, *Agregar a pantalla de inicio*, y poner la
-  clave de sync en *Menú → Conexión*.
-- Al cambiar archivos de `public/pedidos`, subir `CACHE_VERSION` en `sw.js`.
+Al publicar cambios en `public/pedidos`, sube `CACHE_VERSION` en `sw.js`.
 
-## 5. Límites conocidos / próximos pasos
-- El acceso de vendedores es sin contraseña, como se pidió. La seguridad real está en el servidor:
-  las claves de sync y admin. Cualquiera que tenga la clave de sync puede subir pedidos.
-- El stock mostrado al vendedor no descuenta lo reservado por pedidos de otros vendedores aún no despachados.
-- La tasa Bs/USD se configura en cada equipo; todavía no se sincroniza.
-- Si dos PCs de oficina confirman el mismo despacho a la vez, el stock resultante lo decide la última escritura.
+## 6. Límites conocidos
+- Los números de carga y de nota los asigna el equipo que aprueba. Si dos PCs aprueban a la vez sin haber sincronizado, podrían repetir número. Recomendación: aprobar desde una sola PC.
+- El stock que ve el vendedor no descuenta lo que ya está en hojas pendientes de aprobar; los faltantes se ven en la oficina.
+- `vendor/xlsx.full.min.js` es SheetJS 0.18.5, la última versión en npm, y tiene avisos de seguridad conocidos. Solo lo usa la oficina, para leer archivos propios. Conviene actualizarlo a 0.20.x desde cdn.sheetjs.com cuando sea posible.
